@@ -1,0 +1,11 @@
+id,platform,topic,content,author_hash,like_count,reply_count,publish_time,source_url,parent_id
+game-001,weibo,IAA游戏,"刚玩两分钟就弹广告，真的烦。",u001,42,6,2026-06-20T10:00:00Z,https://example.com/game/001,
+game-002,weibo,IAA游戏,"不是不能看广告，是每一关都让我看。",u002,38,5,2026-06-20T11:00:00Z,https://example.com/game/002,
+game-003,weibo,IAA游戏,"奖励广告可以接受，但别强制。",u003,31,4,2026-06-20T12:00:00Z,https://example.com/game/003,
+game-004,zhihu,IAA游戏,"核心玩法有创意，但数值成长压力偏大。",u004,25,3,2026-06-21T09:00:00Z,https://example.com/game/004,
+game-005,zhihu,IAA游戏,"信息解释不够透明，新手不知道资源该怎么用。",u005,18,2,2026-06-21T10:00:00Z,https://example.com/game/005,
+game-006,weibo,IAA游戏,"画风很舒服，上手也快，适合碎片时间玩。",u006,44,7,2026-06-21T12:00:00Z,https://example.com/game/006,
+game-007,hupu,IAA游戏,"新版本有点卡顿，手机发热也明显。",u007,33,8,2026-06-22T10:00:00Z,https://example.com/game/007,
+game-008,zhihu,IAA游戏,"匹配机制有点不平衡，连续遇到高战力对手。",u008,28,5,2026-06-22T11:00:00Z,https://example.com/game/008,
+game-009,weibo,IAA游戏,"剧情节奏比同类产品更紧凑，这是优势。",u009,21,2,2026-06-22T12:00:00Z,https://example.com/game/009,
+

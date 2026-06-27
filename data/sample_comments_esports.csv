@@ -1,0 +1,7 @@
+id,platform,topic,content,author_hash,like_count,reply_count,publish_time,source_url,parent_id
+esports-001,hupu,电竞赛事,"这场比赛最后三分钟太燃了，团队配合真漂亮。",e001,58,12,2026-06-20T20:00:00Z,https://example.com/esports/001,
+esports-002,hupu,电竞赛事,"裁判几个判罚真的离谱，情绪都被带起来了。",e002,46,15,2026-06-20T20:10:00Z,https://example.com/esports/002,
+esports-003,weibo,电竞赛事,"选手高光操作值得反复看，剪成短视频肯定能火。",e003,73,20,2026-06-20T20:20:00Z,https://example.com/esports/003,
+esports-004,bilibili,电竞赛事,"解说很有激情，但是广告插入太突兀。",e004,22,4,2026-06-20T20:30:00Z,https://example.com/esports/004,
+esports-005,hupu,电竞赛事,"战术执行太犹豫，优势局拖到被翻盘。",e005,35,9,2026-06-20T20:40:00Z,https://example.com/esports/005,
+

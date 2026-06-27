@@ -1,0 +1,7 @@
+id,platform,topic,content,author_hash,like_count,reply_count,publish_time,source_url,parent_id
+news-001,zhihu,新闻事件,"这篇报道的信息价值很高，把来龙去脉讲清楚了。",n001,39,6,2026-06-20T08:00:00Z,https://example.com/news/001,
+news-002,weibo,新闻事件,"关键事实还是不透明，大家当然会质疑。",n002,51,19,2026-06-20T08:20:00Z,https://example.com/news/002,
+news-003,zhihu,新闻事件,"观点我认同，但证据链还需要补充。",n003,24,5,2026-06-20T08:40:00Z,https://example.com/news/003,
+news-004,weibo,新闻事件,"标题太容易误导传播，评论区已经吵起来了。",n004,44,11,2026-06-20T09:00:00Z,https://example.com/news/004,
+news-005,reddit,新闻事件,"The article is useful, but the source should be clearer.",n005,17,3,2026-06-20T09:20:00Z,https://example.com/news/005,
+
