@@ -11,7 +11,7 @@ Target: focused Hupu sports release
 - [x] Original thread context preserved with comments.
 - [x] Optional public-news and manual context supported.
 - [x] News facts separated from fan opinions.
-- [x] Public comment images parsed and analyzed with SiliconFlow `Qwen/Qwen3.5-4B`.
+- [x] Informative main-post/news/official images analyzed with SiliconFlow `Qwen/Qwen3.5-4B`; reply images ignored.
 - [x] Explicit outcome contradictions filtered before insight persistence.
 - [x] Strategy cards removed.
 - [x] A/B testing removed.
@@ -24,16 +24,17 @@ Target: focused Hupu sports release
 
 ## Verification
 
-- [x] Backend: 20 tests passed.
+- [x] Backend: 24 tests passed.
 - [x] Frontend: TypeScript passed.
 - [x] Frontend: production build passed.
 - [x] npm audit: 0 vulnerabilities.
 - [x] OpenAPI contains no strategy endpoint.
 - [x] Browser validation: Dashboard, New Task, Task Status, and real Analysis Report returned 200 with no console/request errors.
-- [x] Image display: 7 report image elements loaded through the allowlisted proxy; 0 broken images.
-- [x] Real public Hupu task: 60 comments collected from four user-selected thread URLs, all persisted sources are `bbs.hupu.com`.
-- [x] Real image run: 17 image-bearing comments found; 6 unique images analyzed successfully; low/unrelated images excluded from NLP enrichment.
-- [x] Real task output: 57 deduplicated comments, 6 clusters, Markdown report, and low-sample warning.
+- [x] Source-image display uses the allowlisted Hupu proxy with source links and confidence metadata.
+- [x] Real public Hupu task: 39 comments / 36 deduplicated comments sampled across five selected threads; all persisted sources are `bbs.hupu.com`.
+- [x] Real source-image run: reply image count is zero; four main-post candidates were reviewed independently.
+- [x] Visual grounding audit: one player portrait and three in-progress scoreboard screenshots were excluded; zero images were forced into the summary.
+- [x] Real task output includes Markdown image-screening traceability and a low-sample warning.
 
 ## Compliance
 

@@ -235,6 +235,7 @@ def get_insights(task_id: int, db: Session = Depends(get_db)) -> InsightOut:
         context_alignment=report.context_alignment,
         fact_opinion_gaps=report.fact_opinion_gaps,
         risks=report.risks,
+        context_media=report.context_media or [],
     )
 
 

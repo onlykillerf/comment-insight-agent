@@ -79,7 +79,7 @@ export default function TaskDetailPage() {
               </Tag>
               <Tag color={task.enable_llm ? "cyan" : "default"}>{task.enable_llm ? "LLM enabled" : "LLM disabled"}</Tag>
               <Tag color={task.enable_image_analysis ? "geekblue" : "default"}>
-                {task.enable_image_analysis ? `Vision enabled · max ${task.max_image_comments}` : "Vision disabled"}
+                {task.enable_image_analysis ? `Context vision · max ${task.max_image_comments}` : "Context vision disabled"}
               </Tag>
               {quality?.warning && <Tag color="orange">{quality.warning}</Tag>}
               {quality && <Tag color="purple">sample confidence: {quality.sample_confidence_level}</Tag>}
@@ -98,7 +98,7 @@ export default function TaskDetailPage() {
               <Descriptions.Item label="新闻上下文">{task.news_urls.length + (task.news_context ? 1 : 0)} 条</Descriptions.Item>
               <Descriptions.Item label="关键词">{task.keywords.join(" / ")}</Descriptions.Item>
               <Descriptions.Item label="最大评论数">{task.max_comments}</Descriptions.Item>
-              <Descriptions.Item label="配图理解">{task.enable_image_analysis ? `Qwen/Qwen3.5-4B，最多 ${task.max_image_comments} 条` : "关闭"}</Descriptions.Item>
+              <Descriptions.Item label="上下文信息图">{task.enable_image_analysis ? `Qwen/Qwen3.5-4B，最多 ${task.max_image_comments} 张` : "关闭"}</Descriptions.Item>
               <Descriptions.Item label="相似度阈值">{task.similarity_threshold}</Descriptions.Item>
               <Descriptions.Item label="语义查询">{task.semantic_query}</Descriptions.Item>
             </Descriptions>

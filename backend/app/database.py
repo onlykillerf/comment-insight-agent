@@ -66,6 +66,7 @@ def _upgrade_sqlite_schema() -> None:
             "news_context_summary": "TEXT DEFAULT '' NOT NULL",
             "context_alignment": "JSON DEFAULT '[]' NOT NULL",
             "fact_opinion_gaps": "JSON DEFAULT '[]' NOT NULL",
+            "context_media": "JSON DEFAULT '[]' NOT NULL",
         },
         "cluster_results": {
             "method": "VARCHAR(40) DEFAULT 'rules' NOT NULL",

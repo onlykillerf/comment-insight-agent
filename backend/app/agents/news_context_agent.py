@@ -3,7 +3,7 @@ from __future__ import annotations
 import ipaddress
 import socket
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -20,10 +20,10 @@ class NewsContextAgent:
         "Accept-Language": "zh-CN,zh;q=0.9",
     }
 
-    def run(self, config: dict[str, Any]) -> list[dict[str, str]]:
+    def run(self, config: dict[str, Any]) -> list[dict[str, Any]]:
         """Return public news context without turning fetch errors into task failures."""
 
-        items: list[dict[str, str]] = []
+        items: list[dict[str, Any]] = []
         manual = str(config.get("news_context") or "").strip()
         if manual:
             items.append(
@@ -34,6 +34,7 @@ class NewsContextAgent:
                     "published_at": "",
                     "source": "manual",
                     "status": "provided",
+                    "image_urls": [],
                 }
             )
 
@@ -55,6 +56,7 @@ class NewsContextAgent:
                             "published_at": "",
                             "source": "public_url",
                             "status": "error",
+                            "image_urls": [],
                         }
                     )
         return items
@@ -72,7 +74,7 @@ class NewsContextAgent:
             current = str(response.url.join(location))
         raise ValueError("News URL redirected too many times")
 
-    def parse_article(self, html: str, url: str) -> dict[str, str]:
+    def parse_article(self, html: str, url: str) -> dict[str, Any]:
         """Extract a compact title and body summary from an article page."""
 
         soup = BeautifulSoup(html, "html.parser")
@@ -100,7 +102,33 @@ class NewsContextAgent:
             "published_at": published_at[:80],
             "source": "public_url",
             "status": "fetched",
+            "image_urls": self._article_images(soup, url),
         }
+
+    @staticmethod
+    def _article_images(soup: BeautifulSoup, page_url: str) -> list[str]:
+        values: list[str] = []
+        og_image = NewsContextAgent._meta(soup, "property", "og:image")
+        if og_image:
+            values.append(og_image)
+        for image in soup.select("article img, main img, [class*='article'] img, [class*='content'] img"):
+            value = str(image.get("data-src") or image.get("src") or "").strip()
+            if value:
+                values.append(value)
+
+        urls: list[str] = []
+        for value in values:
+            url = urljoin(page_url, value)
+            lowered = url.lower()
+            if not url.startswith(("https://", "http://")):
+                continue
+            if any(token in lowered for token in ["avatar", "logo", "icon", ".gif"]):
+                continue
+            if url not in urls:
+                urls.append(url)
+            if len(urls) >= 6:
+                break
+        return urls
 
     @staticmethod
     def _meta(soup: BeautifulSoup, key: str, value: str) -> str:

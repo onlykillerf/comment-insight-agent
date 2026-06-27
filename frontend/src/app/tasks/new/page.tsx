@@ -85,7 +85,8 @@ export default function NewTaskPage() {
             "https://bbs.hupu.com/639718527.html",
             "https://bbs.hupu.com/639718379.html",
             "https://bbs.hupu.com/639726820.html",
-            "https://bbs.hupu.com/639720487.html"
+            "https://bbs.hupu.com/639720487.html",
+            "https://bbs.hupu.com/639737756.html"
           ].join("\n"),
           news_urls: "",
           news_context: "尼克斯客场 105-95 击败马刺，系列赛 1-0 领先。该背景仅用于对照网友观点，最终事实以可靠赛后报道和官方数据为准。",
@@ -188,13 +189,13 @@ export default function NewTaskPage() {
             <Switch />
           </Form.Item>
           <Form.Item
-            label="分析评论配图（SiliconFlow Qwen/Qwen3.5-4B）"
+            label="分析主帖/新闻信息图（SiliconFlow Qwen/Qwen3.5-4B）"
             name="enable_image_analysis"
             valuePropName="checked"
           >
             <Switch />
           </Form.Item>
-          <Form.Item label="最多分析配图评论" name="max_image_comments">
+          <Form.Item label="最多分析上下文图片" name="max_image_comments">
             <InputNumber min={0} max={20} className="w-full" />
           </Form.Item>
         </div>

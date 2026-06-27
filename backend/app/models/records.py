@@ -80,6 +80,7 @@ class RawComment(Base):
     publish_time: Mapped[str] = mapped_column(String(50), default="", nullable=False)
     source_url: Mapped[str] = mapped_column(Text, default="", nullable=False)
     parent_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Legacy columns retained for SQLite compatibility; reply images are no longer collected.
     image_urls: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     image_analysis: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict, nullable=False)
@@ -218,6 +219,7 @@ class InsightReport(Base):
     news_context_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
     context_alignment: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     fact_opinion_gaps: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    context_media: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
     # Retained internally so existing SQLite databases remain insert-compatible.
     platform_differences: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     risks: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)

@@ -19,11 +19,11 @@ Collected fields:
 - plain-text comment content
 - light and reply counts
 - publish time and canonical thread URL
-- public image URLs embedded in reply content
+- original-post image URLs stored only in thread metadata
 - thread title and body excerpt
 - board and match metadata
 
-The connector does not search Hupu automatically. Selecting the relevant board, match, and threads remains an explicit user decision, which keeps the sample interpretable. Image URLs are URL-deduplicated before multimodal calls, and `max_image_comments` defaults to 6.
+The connector does not search Hupu automatically. Selecting the relevant board, match, and threads remains an explicit user decision, which keeps the sample interpretable. Reply images are discarded. Main-post images are scored for official/data signals, URL-deduplicated, and analyzed one by one within the task image budget.
 
 ## Local Import Schema
 

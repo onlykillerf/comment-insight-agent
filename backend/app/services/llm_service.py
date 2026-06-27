@@ -128,7 +128,7 @@ class LLMService:
             },
             "data_quality": context.get("data_quality_report", {}),
             "hupu_threads": self._source_notes(context.get("raw_comments", [])),
-            "visual_evidence": self._visual_evidence(context.get("raw_comments", [])),
+            "context_media_evidence": self._context_media_evidence(context.get("context_media_items", [])),
             "news_context": context.get("news_context_items", []),
             "negative_labels": context.get("painpoints", []),
             "positive_labels": context.get("positive_attributions", []),
@@ -137,7 +137,9 @@ class LLMService:
         }
         return (
             "请基于虎扑比赛评论的结构化分析结果生成赛事舆情洞察。新闻内容只作为事实背景，"
-            "评论及配图分析只代表抽样球迷观点；配图摘要是模型对可见内容的辅助描述，不得当作独立事实来源。"
+            "评论只代表抽样球迷观点。context_media_evidence 仅来自主帖、新闻或官网上下文图，"
+            "其中视觉摘要和 OCR 是辅助证据，必须连同 source_url、authority_level 和 confidence 解读，"
+            "不得把纯人物照片、宣传图或模型猜测写成比赛事实。"
             "比分、胜负和系列赛状态只能复述 news_context 或帖子中的明确事实，不能根据评论情绪反推；"
             "遇到‘输了’等省略主语的帖子标题时，不得自行猜测具体是哪支球队。输出前必须核对球队与赛果是否一致。"
             "分析整体情绪、支持与批评理由、主要争议、新闻背景与评论的"
@@ -181,23 +183,25 @@ class LLMService:
         return list(notes.values())[:16]
 
     @staticmethod
-    def _visual_evidence(raw_comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _context_media_evidence(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         evidence: list[dict[str, Any]] = []
-        for comment in raw_comments:
-            analysis = comment.get("image_analysis") or {}
-            if analysis.get("status") != "completed":
+        for item in items:
+            if not item.get("included_in_summary"):
                 continue
             evidence.append(
                 {
-                    "comment_id": comment.get("id"),
-                    "comment_text": str(comment.get("content") or "")[:500],
-                    "source_url": comment.get("source_url", ""),
-                    "image_urls": list(comment.get("image_urls") or [])[:2],
-                    "visual_summary": analysis.get("summary", ""),
-                    "ocr_text": analysis.get("ocr_text", ""),
-                    "relevance": analysis.get("relevance", ""),
-                    "sentiment_cue": analysis.get("sentiment_cue", ""),
-                    "model": analysis.get("model", ""),
+                    "source_kind": item.get("source_kind", ""),
+                    "title": item.get("title", ""),
+                    "source_url": item.get("source_url", ""),
+                    "authority_level": item.get("authority_level", ""),
+                    "selection_reasons": item.get("selection_reasons", []),
+                    "visual_summary": item.get("summary", ""),
+                    "ocr_text": item.get("ocr_text", ""),
+                    "data_points": item.get("data_points", []),
+                    "relevance": item.get("relevance", ""),
+                    "information_value": item.get("information_value", ""),
+                    "confidence": item.get("confidence", ""),
+                    "model": item.get("model", ""),
                 }
             )
         return evidence[:8]

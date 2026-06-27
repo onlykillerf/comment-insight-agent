@@ -111,6 +111,31 @@ export type Insight = {
   context_alignment: string[];
   fact_opinion_gaps: string[];
   risks: string[];
+  context_media: ContextMedia[];
+};
+
+export type ContextMedia = {
+  source_id: string;
+  source_kind: "hupu_thread" | "news" | string;
+  title: string;
+  text_context: string;
+  source_url: string;
+  image_urls: string[];
+  authority_level: "official" | "official_reference" | "editorial" | "community_data" | string;
+  information_score: number;
+  selection_reasons: string[];
+  status: string;
+  model?: string;
+  summary?: string;
+  ocr_text?: string;
+  entities?: string[];
+  data_points?: string[];
+  relevance?: string;
+  information_value?: string;
+  confidence?: string;
+  included_in_summary: boolean;
+  exclusion_reason?: string;
+  error?: string;
 };
 
 export type ClassificationRow = {

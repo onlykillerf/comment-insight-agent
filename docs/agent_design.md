@@ -5,7 +5,7 @@
 | `TaskUnderstandingAgent` | task model | normalized match config | Restrict sport to basketball/football and platform to Hupu. |
 | `PlatformRouterAgent` | config | connector plans | Choose Mock, Hupu public page, CSV, or JSON. |
 | `CommentCrawlerAgent` | connector plans | RawComment dictionaries | Collect or import bounded comments. |
-| `MediaUnderstandingAgent` | image-bearing RawComments + task limit | structured image evidence | Deduplicate public image URLs and analyze a bounded subset with `Qwen/Qwen3.5-4B`. |
+| `MediaUnderstandingAgent` | main-post metadata + news context + task limit | source-level visual evidence | Select data/official images, ignore reply media, and analyze each image with `Qwen/Qwen3.5-4B`. |
 | `NewsContextAgent` | manual brief + public URLs | bounded context items | Extract optional factual background without failing the comment run. |
 | `DataCleaningAgent` | raw comments | cleaned comments | Normalize text and filter low-quality rows. |
 | `DeduplicationAgent` | cleaned comments | duplicate annotations | Reduce repeated comments and copies. |
@@ -20,7 +20,7 @@
 ## State Flow
 
 ```text
-understand → route → crawl → media → context → clean → dedup → quality
+understand → route → crawl → context → media → clean → dedup → quality
 → sentiment → attribute → cluster → sample → insight → visualize
 ```
 
@@ -30,7 +30,8 @@ Each step records status, duration, input summary, output summary, and error det
 
 - Hupu parser failure: task fails with a clear public-page parsing error; use CSV/JSON fallback.
 - Individual news failure: stored as a context error; comment analysis continues.
-- Individual image failure: recorded on that comment; the remaining comments and images continue. One transient transport retry is allowed.
-- Low/unrelated image: stored for traceability but excluded from cleaned NLP text.
+- Individual source-image failure: recorded on that source item; the remaining analysis continues. One transient transport retry is allowed.
+- Low/unrelated image: stored for audit but excluded from the final contextual insight.
+- Reply image: never collected or sent to the vision provider.
 - LLM failure: returns a provider error insight while deterministic analysis remains available.
 - Small samples: confidence is lowered and the report shows a warning.

@@ -61,10 +61,10 @@ export default function ReportPage() {
   const negativeRatio = dedupComments.length ? negativeCount / dedupComments.length : 0;
   const dominantTopic = clusters.filter((cluster) => !cluster.is_noise).sort((a, b) => b.cluster_size - a.cluster_size)[0];
   const displayQuality = quality || fallbackQualityFor(comments, dedupComments);
-  const imageComments = useMemo(() => comments.filter((comment) => comment.image_urls.length > 0), [comments]);
-  const analyzedImages = useMemo(
-    () => imageComments.filter((comment) => comment.image_analysis.status === "completed"),
-    [imageComments]
+  const allContextMedia = useMemo(() => insight?.context_media || [], [insight]);
+  const contextMedia = useMemo(
+    () => allContextMedia.filter((item) => item.included_in_summary),
+    [allContextMedia]
   );
 
   if (!task && !error) {
@@ -105,7 +105,7 @@ export default function ReportPage() {
         <div className="metric-tile"><Statistic title="重复率" value={displayQuality.duplicate_ratio * 100} precision={1} suffix="%" /></div>
         <div className="metric-tile"><Statistic title="负向占比" value={negativeRatio * 100} precision={1} suffix="%" /></div>
         <div className="metric-tile"><Statistic title="主导话题" value={dominantTopic?.cluster_name || "N/A"} /></div>
-        <div className="metric-tile"><Statistic title="配图已理解" value={analyzedImages.length} suffix={`/ ${imageComments.length}`} /></div>
+        <div className="metric-tile"><Statistic title="有效上下文图" value={contextMedia.length} suffix={`/ ${allContextMedia.length} 审查`} /></div>
       </section>
 
       {task && (
@@ -149,35 +149,48 @@ export default function ReportPage() {
       </section>
 
       <section className="tool-panel p-4">
-        <h2 className="m-0 mb-1 text-lg font-semibold text-ink">评论配图证据</h2>
+        <h2 className="m-0 mb-1 text-lg font-semibold text-ink">主帖与权威来源图像证据</h2>
         <p className="m-0 mb-4 text-sm text-slate-500">
-          配图由 SiliconFlow Qwen/Qwen3.5-4B 描述，仅作为评论语义的辅助证据，不作为独立新闻事实。
+          仅分析主帖、数据帖、裁判报告、新闻或官网页面中的信息图；评论区图片、GIF 和表情包不参与分析。
         </p>
-        {analyzedImages.length ? (
+        {contextMedia.length ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {analyzedImages.map((comment) => (
-              <article className="border border-slate-200 p-3" key={comment.id}>
+            {contextMedia.map((item) => (
+              <article className="border border-slate-200 p-3" key={item.source_id}>
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <a href={item.source_url} target="_blank" rel="noreferrer" className="font-medium text-ink">
+                    {item.title || "未命名来源"}
+                  </a>
+                  <Tag>{item.authority_level}</Tag>
+                </div>
                 <Image.PreviewGroup>
                   <div className="mb-3 flex gap-2 overflow-x-auto">
-                    {comment.image_urls.slice(0, 2).map((url) => (
-                      <Image key={url} src={api.mediaUrl(url)} alt="虎扑公开评论配图" width={112} height={84} className="object-cover" />
+                    {item.image_urls.slice(0, 2).map((url) => (
+                      <Image key={url} src={api.mediaUrl(url)} alt="赛事上下文信息图" width={160} height={112} className="object-cover" />
                     ))}
                   </div>
                 </Image.PreviewGroup>
-                <p className="m-0 text-sm text-slate-700">{comment.image_analysis.summary}</p>
-                {comment.image_analysis.ocr_text && (
-                  <p className="m-0 mt-2 text-xs text-slate-500">OCR：{comment.image_analysis.ocr_text}</p>
+                <p className="m-0 text-sm leading-6 text-slate-700">{item.summary}</p>
+                {!!item.data_points?.length && (
+                  <List size="small" className="mt-2" dataSource={item.data_points} renderItem={(point) => <List.Item>{point}</List.Item>} />
+                )}
+                {item.ocr_text && (
+                  <p className="m-0 mt-2 text-xs text-slate-500">OCR：{item.ocr_text}</p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Tag>{comment.image_analysis.relevance || "unknown"}</Tag>
-                  <Tag>{comment.image_analysis.sentiment_cue || "unclear"}</Tag>
-                  <Tag>{comment.image_analysis.model}</Tag>
+                  <Tag>{item.relevance || "unknown"}</Tag>
+                  <Tag>信息量 {item.information_value || "unknown"}</Tag>
+                  <Tag>置信度 {item.confidence || "unknown"}</Tag>
+                  <Tag>{item.model}</Tag>
                 </div>
               </article>
             ))}
           </div>
         ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="本次样本没有完成配图分析" />
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={allContextMedia.length ? `已审查 ${allContextMedia.length} 张，均因信息量或视觉落地不足而未加入摘要` : "没有候选主帖、新闻或官网信息图"}
+          />
         )}
       </section>
 
@@ -207,11 +220,6 @@ export default function ReportPage() {
           dataSource={dedupComments.slice(0, 36)}
           columns={[
             { title: "评论", dataIndex: "cleaned_content" },
-            {
-              title: "配图",
-              width: 120,
-              render: (_, record) => record.image_urls[0] ? <Image src={api.mediaUrl(record.image_urls[0])} alt="评论配图" width={72} height={54} className="object-cover" /> : "-"
-            },
             { title: "情绪", dataIndex: "sentiment_label", width: 120 },
             { title: "赛事标签", width: 180, render: (_, record) => <Tag>{record.painpoint || record.positive_attribution || "中性"}</Tag> },
             { title: "代表性原因", dataIndex: "representative_reason", width: 240, render: (value?: string | null) => value || "-" }

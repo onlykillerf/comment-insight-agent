@@ -15,7 +15,7 @@ The repository now focuses on one workflow:
 5. optionally provide public news context
 6. analyze sample quality, sentiment, topics, and representative opinions
 7. compare fan opinions with the supplied factual background
-8. inspect a bounded set of public comment images without letting unrelated memes pollute NLP results
+8. inspect a bounded set of main-post, data, news, and official images while ignoring reply media
 
 ## Removed Surface Area
 
@@ -31,7 +31,7 @@ The repository now focuses on one workflow:
 - One or two threads may overrepresent a fan group or a high-light controversy.
 - Rule-based sentiment and sports labels require ongoing manual evaluation.
 - Public news pages vary widely in extraction quality.
-- Comment images are model interpretations and may be irrelevant reaction media; relevance labels must remain visible.
+- Source images are still model-interpreted evidence; source authority, information value, and confidence must remain visible.
 - Existing local SQLite files retain legacy columns/tables for compatibility, but new workflows do not read or write strategy cards.
 
 ## Next Priorities

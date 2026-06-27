@@ -6,11 +6,11 @@ from types import SimpleNamespace
 import httpx
 
 from app.agents.media_understanding_agent import MediaUnderstandingAgent
-from app.services.vision_service import SiliconFlowVisionService
 from app.services.llm_service import LLMService
+from app.services.vision_service import SiliconFlowVisionService
 
 
-def test_siliconflow_vision_request_is_bounded_and_structured(monkeypatch) -> None:
+def test_siliconflow_context_vision_request_is_bounded_and_structured(monkeypatch) -> None:
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -23,11 +23,13 @@ def test_siliconflow_vision_request_is_bounded_and_structured(monkeypatch) -> No
                         "message": {
                             "content": json.dumps(
                                 {
-                                    "summary": "比赛转播截图，画面显示球场和比分栏。",
+                                    "summary": "比赛数据图显示最终比分和哈特的技术统计。",
                                     "ocr_text": "NYK 105 SAS 95",
-                                    "entities": ["尼克斯", "马刺"],
+                                    "entities": ["尼克斯", "马刺", "哈特"],
+                                    "data_points": ["哈特15篮板", "哈特4抢断"],
                                     "relevance": "high",
-                                    "sentiment_cue": "neutral",
+                                    "information_value": "high",
+                                    "confidence": "high",
                                 },
                                 ensure_ascii=False,
                             )
@@ -37,8 +39,7 @@ def test_siliconflow_vision_request_is_bounded_and_structured(monkeypatch) -> No
             },
         )
 
-    client = httpx.Client(transport=httpx.MockTransport(handler))
-    service = SiliconFlowVisionService(client=client)
+    service = SiliconFlowVisionService(client=httpx.Client(transport=httpx.MockTransport(handler)))
     monkeypatch.setattr(
         service,
         "settings",
@@ -49,13 +50,15 @@ def test_siliconflow_vision_request_is_bounded_and_structured(monkeypatch) -> No
         ),
     )
 
-    result = service.analyze_comment(
+    result = service.analyze_context_media(
         {
-            "content": "看比分",
+            "title": "[流言板]哈特季后赛数据",
+            "text_context": "来源：NBA官网。哈特得到15篮板4抢断。",
+            "authority_level": "official_reference",
             "image_urls": [
-                "https://i3.hoopchina.com.cn/one.jpg",
-                "https://i3.hoopchina.com.cn/two.jpg",
-                "https://i3.hoopchina.com.cn/ignored.jpg",
+                "https://i3.hoopchina.com.cn/stat-one.png",
+                "https://i3.hoopchina.com.cn/stat-two.png",
+                "https://i3.hoopchina.com.cn/ignored.png",
             ],
         },
         {"match_name": "尼克斯 vs 马刺 G1"},
@@ -63,66 +66,172 @@ def test_siliconflow_vision_request_is_bounded_and_structured(monkeypatch) -> No
 
     assert result["status"] == "completed"
     assert result["image_count"] == 2
-    assert result["ocr_text"] == "NYK 105 SAS 95"
+    assert result["data_points"] == ["哈特15篮板", "哈特4抢断"]
     assert captured["model"] == "Qwen/Qwen3.5-4B"
     assert captured["enable_thinking"] is False
     image_blocks = [item for item in captured["messages"][1]["content"] if item["type"] == "image_url"]
     assert len(image_blocks) == 2
+    assert all(item["image_url"]["detail"] == "high" for item in image_blocks)
 
 
-def test_media_agent_respects_comment_limit_and_builds_analysis_content() -> None:
+def test_media_agent_uses_main_post_image_and_ignores_reply_image() -> None:
     class FakeVisionService:
         settings = SimpleNamespace(siliconflow_vision_model="Qwen/Qwen3.5-4B")
 
-        def analyze_comment(self, comment: dict, match_context: dict) -> dict:
+        def analyze_context_media(self, source: dict, match_context: dict) -> dict:
             return {
                 "status": "completed",
                 "model": self.settings.siliconflow_vision_model,
-                "summary": f"配图属于{match_context['match_name']}",
-                "ocr_text": "105-95",
+                "summary": "哈特数据统计图",
+                "ocr_text": "15 REB 4 STL",
+                "data_points": ["15篮板", "4抢断"],
                 "relevance": "high",
+                "information_value": "high",
+                "confidence": "high",
             }
 
     comments = [
-        {"content": "低赞", "like_count": 1, "image_urls": ["https://example.com/low.jpg"]},
-        {"content": "高赞", "like_count": 20, "image_urls": ["https://example.com/high.jpg"]},
+        {
+            "content": "评论区回复",
+            "image_urls": ["https://i3.hoopchina.com.cn/reply-meme.gif"],
+            "source_url": "https://bbs.hupu.com/123.html",
+            "metadata": {
+                "thread_id": "123",
+                "thread_title": "[流言板]哈特15篮板4抢断，数据统计来自NBA官网",
+                "thread_excerpt": "哈特本场得到15篮板4抢断，来源：NBA官网。",
+                "thread_image_urls": ["https://i3.hoopchina.com.cn/hart-stat.png"],
+            },
+        }
     ]
     result = MediaUnderstandingAgent(service=FakeVisionService()).run(
         comments,
-        {"enable_image_analysis": True, "max_image_comments": 1, "match_name": "尼克斯 vs 马刺 G1"},
+        [],
+        {
+            "enable_image_analysis": True,
+            "max_image_comments": 2,
+            "match_name": "尼克斯 vs 马刺 G1",
+            "home_team": "马刺",
+            "away_team": "尼克斯",
+        },
     )
 
-    assert result[0]["image_analysis"]["status"] == "skipped_limit"
-    assert result[1]["image_analysis"]["status"] == "completed"
-    assert "配图内容" in result[1]["analysis_content"]
-    assert "105-95" in result[1]["analysis_content"]
+    assert len(result) == 1
+    assert result[0]["image_urls"] == ["https://i3.hoopchina.com.cn/hart-stat.png"]
+    assert "reply-meme" not in json.dumps(result, ensure_ascii=False)
+    assert result[0]["authority_level"] == "official_reference"
+    assert result[0]["included_in_summary"] is True
 
 
-def test_media_agent_does_not_analyze_the_same_image_twice() -> None:
+def test_media_agent_rejects_low_information_main_post_image() -> None:
+    comments = [
+        {
+            "content": "普通回复",
+            "source_url": "https://bbs.hupu.com/456.html",
+            "metadata": {
+                "thread_id": "456",
+                "thread_title": "赛后随便聊聊",
+                "thread_excerpt": "大家怎么看？",
+                "thread_image_urls": ["https://i3.hoopchina.com.cn/player-photo.jpg"],
+            },
+        }
+    ]
+
+    result = MediaUnderstandingAgent().run(
+        comments,
+        [],
+        {"enable_image_analysis": True, "max_image_comments": 2, "match_name": "尼克斯 vs 马刺 G1"},
+    )
+
+    assert result == []
+
+
+def test_media_agent_rejects_stats_borrowed_from_text_when_image_is_only_a_portrait() -> None:
+    class PortraitVisionService:
+        settings = SimpleNamespace(siliconflow_vision_model="Qwen/Qwen3.5-4B")
+
+        def analyze_context_media(self, source: dict, match_context: dict) -> dict:
+            return {
+                "status": "completed",
+                "model": self.settings.siliconflow_vision_model,
+                "summary": "哈特人物照片",
+                "ocr_text": "NEW YORK 3",
+                "data_points": ["15篮板", "4抢断"],
+                "relevance": "high",
+                "information_value": "medium",
+                "confidence": "high",
+            }
+
+    comments = [
+        {
+            "content": "回复",
+            "source_url": "https://bbs.hupu.com/10.html",
+            "metadata": {
+                "thread_id": "10",
+                "thread_title": "[流言板]哈特数据统计来自NBA官网",
+                "thread_excerpt": "哈特15篮板4抢断。",
+                "thread_image_urls": ["https://i3.hoopchina.com.cn/hart.png"],
+            },
+        }
+    ]
+    result = MediaUnderstandingAgent(service=PortraitVisionService()).run(
+        comments,
+        [],
+        {"enable_image_analysis": True, "max_image_comments": 1, "match_name": "比赛"},
+    )
+
+    assert result[0]["included_in_summary"] is False
+    assert "OCR" in result[0]["exclusion_reason"]
+
+
+def test_media_agent_respects_total_image_budget_and_prioritizes_png() -> None:
     class CountingVisionService:
         settings = SimpleNamespace(siliconflow_vision_model="Qwen/Qwen3.5-4B")
 
         def __init__(self) -> None:
-            self.calls = 0
+            self.images: list[str] = []
 
-        def analyze_comment(self, comment: dict, match_context: dict) -> dict:
-            self.calls += 1
-            return {"status": "completed", "model": self.settings.siliconflow_vision_model, "summary": "梗图"}
+        def analyze_context_media(self, source: dict, match_context: dict) -> dict:
+            self.images.extend(source["image_urls"])
+            return {
+                "status": "completed",
+                "model": self.settings.siliconflow_vision_model,
+                "summary": "统计图",
+                "data_points": ["数据"],
+                "relevance": "high",
+                "information_value": "high",
+                "confidence": "medium",
+            }
 
     service = CountingVisionService()
-    shared_url = "https://example.com/shared.gif"
     comments = [
-        {"content": "第一条", "like_count": 20, "image_urls": [shared_url]},
-        {"content": "第二条", "like_count": 10, "image_urls": [shared_url]},
+        {
+            "content": "回复",
+            "source_url": "https://bbs.hupu.com/789.html",
+            "metadata": {
+                "thread_id": "789",
+                "thread_title": "球员投篮命中率数据统计",
+                "thread_excerpt": "球队进攻效率与三分命中率统计。",
+                "thread_image_urls": [
+                    "https://i3.hoopchina.com.cn/photo.jpg",
+                    "https://i3.hoopchina.com.cn/chart.png",
+                    "https://i3.hoopchina.com.cn/reaction.gif",
+                ],
+            },
+        }
     ]
-    result = MediaUnderstandingAgent(service=service).run(
+    MediaUnderstandingAgent(service=service).run(
         comments,
-        {"enable_image_analysis": True, "max_image_comments": 2, "match_name": "比赛"},
+        [],
+        {"enable_image_analysis": True, "max_image_comments": 1, "match_name": "比赛"},
     )
 
-    assert service.calls == 1
-    assert result[0]["image_analysis"]["status"] == "completed"
-    assert result[1]["image_analysis"]["status"] == "skipped_duplicate"
+    assert service.images == ["https://i3.hoopchina.com.cn/chart.png"]
+
+
+def test_live_scoreboard_ocr_is_not_treated_as_summary_evidence() -> None:
+    assert not MediaUnderstandingAgent._has_visual_information(
+        {"ocr_text": "ESPN NY 8 SA 2 1st 9:22 Finals GAME 1"}
+    )
 
 
 def test_vision_service_retries_one_transient_transport_error(monkeypatch) -> None:
@@ -133,7 +242,18 @@ def test_vision_service_retries_one_transient_transport_error(monkeypatch) -> No
         calls += 1
         if calls == 1:
             raise httpx.ReadError("temporary EOF", request=request)
-        return httpx.Response(200, json={"choices": [{"message": {"content": '{"summary":"赛场图"}'}}]})
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"summary":"数据图","relevance":"high","information_value":"high"}'
+                        }
+                    }
+                ]
+            },
+        )
 
     service = SiliconFlowVisionService(client=httpx.Client(transport=httpx.MockTransport(handler)))
     monkeypatch.setattr(
@@ -147,13 +267,34 @@ def test_vision_service_retries_one_transient_transport_error(monkeypatch) -> No
     )
     monkeypatch.setattr("app.services.vision_service.time.sleep", lambda _: None)
 
-    result = service.analyze_comment(
-        {"content": "赛场", "image_urls": ["https://example.com/game.jpg"]},
+    result = service.analyze_context_media(
+        {"title": "球队数据", "image_urls": ["https://example.com/stat.png"]},
         {"match_name": "比赛"},
     )
 
     assert calls == 2
     assert result["status"] == "completed"
+
+
+def test_llm_visual_evidence_only_uses_approved_context_media() -> None:
+    evidence = LLMService._context_media_evidence(
+        [
+            {
+                "source_kind": "hupu_thread",
+                "title": "球队数据",
+                "source_url": "https://bbs.hupu.com/1.html",
+                "authority_level": "official_reference",
+                "selection_reasons": ["数据统计"],
+                "summary": "统计图",
+                "data_points": ["15篮板"],
+                "included_in_summary": True,
+            },
+            {"title": "人物照片", "included_in_summary": False},
+        ]
+    )
+
+    assert len(evidence) == 1
+    assert evidence[0]["title"] == "球队数据"
 
 
 def test_llm_outcome_guard_removes_result_contradiction() -> None:

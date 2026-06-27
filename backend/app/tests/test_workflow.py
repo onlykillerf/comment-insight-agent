@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from app.config import get_settings
 from app.models import Task
 from app.workflows.comment_analysis_graph import CommentAnalysisGraph
 
 
-def test_workflow_generates_complete_demo_result() -> None:
+def test_workflow_generates_complete_demo_result(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
+    get_settings.cache_clear()
     task = Task(
         id=1,
         name="pytest demo",
@@ -41,3 +44,4 @@ def test_workflow_generates_complete_demo_result() -> None:
     assert "strategy_cards" not in result
     assert "strategy" not in result["agent_progress"]
     assert result["clusters"]
+    get_settings.cache_clear()

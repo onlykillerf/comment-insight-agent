@@ -31,6 +31,7 @@ export const api = {
   getPainpoints: (taskId: number) => request<ClassificationRow[]>(`/api/tasks/${taskId}/painpoints`),
   getPositiveAttributions: (taskId: number) => request<ClassificationRow[]>(`/api/tasks/${taskId}/positive-attributions`),
   getInsights: (taskId: number) => request<Insight>(`/api/tasks/${taskId}/insights`),
-  mediaUrl: (url: string) => `${API_BASE}/api/media/proxy?url=${encodeURIComponent(url)}`,
+  mediaUrl: (url: string) =>
+    url.includes(".hoopchina.com.cn/") ? `${API_BASE}/api/media/proxy?url=${encodeURIComponent(url)}` : url,
   markdownUrl: (taskId: number) => `${API_BASE}/api/tasks/${taskId}/report/markdown`
 };

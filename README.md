@@ -1,6 +1,6 @@
 # Hupu Sports Comment Insight Agent
 
-Turn public Hupu match discussions and comment images into sentiment trends, topic clusters, representative opinions, and news-context comparisons.
+Turn public Hupu match discussions, informative source images, and news context into sentiment trends, topic clusters, and grounded match insights.
 
 一个聚焦虎扑篮球与足球板块的赛事评论分析 Multi-Agent 项目：选择板块和具体比赛，导入公开帖子评论，并结合相关新闻背景分析球迷情绪、争议焦点与主要观点。
 
@@ -27,7 +27,8 @@ Repository: https://github.com/onlykillerf/comment-insight-agent
 → 选择虎扑板块（NBA、世界杯等）
 → 指定具体比赛
 → 读取用户指定的公开虎扑帖子
-→ 用 Qwen/Qwen3.5-4B 理解少量唯一评论配图
+→ 筛选主帖、数据帖、新闻或官网中的高信息量图片
+→ 用 Qwen/Qwen3.5-4B 提取统计、比分、阵容与判罚信息
 → 清洗、去重和样本质量检查
 → 情绪与赛事标签分析
 → 主题聚类与典型评论
@@ -42,7 +43,7 @@ Repository: https://github.com/onlykillerf/comment-insight-agent
 - **Match-first task model**: sport, Hupu board, teams, stage, date, and selected thread URLs.
 - **Hupu public-thread connector**: reads public `bbs.hupu.com` pages and paginated replies selected by the user.
 - **Thread context**: analyzes the original post title and body excerpt, not comments in isolation.
-- **Comment-image understanding**: extracts public reply images and analyzes a bounded, URL-deduplicated subset with SiliconFlow `Qwen/Qwen3.5-4B`.
+- **Source-image understanding**: analyzes only informative main-post, data-post, news, or official images with SiliconFlow `Qwen/Qwen3.5-4B`; reply images are ignored.
 - **News context**: accepts a manual match brief or selected public news URLs.
 - **Fact/opinion boundary**: news is treated as context; sampled comments are never presented as verified facts.
 - **Outcome guardrail**: filters LLM claims that contradict an explicit winner/loser relationship in the provided context.
@@ -65,8 +66,9 @@ flowchart LR
   Flow --> Hupu[Hupu Public Threads]
   Flow --> News[Selected Public News]
   Hupu --> Quality[Cleaning / Dedup / Quality]
-  Hupu --> Vision[Qwen 3.5 Vision]
-  Vision --> Quality
+  Hupu --> Vision[Main-post / data images]
+  News --> Vision
+  Vision --> Insight
   Quality --> Analysis[Sentiment / Labels / Clustering]
   News --> Insight[Context-aware Insight]
   Analysis --> Insight
@@ -78,8 +80,8 @@ flowchart LR
 flowchart TD
   A[TaskUnderstandingAgent] --> B[PlatformRouterAgent]
   B --> C[CommentCrawlerAgent]
-  C --> V[MediaUnderstandingAgent]
-  V --> D[NewsContextAgent]
+  C --> D[NewsContextAgent]
+  D --> V[MediaUnderstandingAgent]
   D --> E[DataCleaningAgent]
   E --> F[DeduplicationAgent]
   F --> G[DataQualityAgent]
@@ -171,10 +173,10 @@ Each scenario contains 320 synthetic comments and produces:
 4. Choose **Hupu public threads** as the data source.
 5. Paste one or more public `https://bbs.hupu.com/<thread-id>.html` URLs.
 6. Optionally add public news URLs or a manual match brief.
-7. Keep image analysis enabled to process up to six unique comment images with `Qwen/Qwen3.5-4B`.
+7. Keep source-image analysis enabled to process up to six selected main-post, news, or official images with `Qwen/Qwen3.5-4B`.
 8. Run the workflow.
 
-The connector reads only public thread pages selected by the user. It does not search the whole site, use login cookies, call private APIs, or bypass platform controls. Image analysis receives only the public image URLs embedded in those replies. If Hupu changes its page structure or rejects the request, use a local CSV/JSON export instead.
+The connector reads only public thread pages selected by the user. It does not search the whole site, use login cookies, call private APIs, or bypass platform controls. Reply images, GIFs, and reaction memes are not collected. Vision receives only filtered images from the original post, selected news pages, or official sources. If Hupu changes its page structure or rejects the request, use a local CSV/JSON export instead.
 
 Configure SiliconFlow in `.env`:
 
@@ -186,7 +188,9 @@ SILICONFLOW_VISION_MODEL=Qwen/Qwen3.5-4B
 SILICONFLOW_API_KEY=your-key
 ```
 
-Only `high` and `medium` relevance image summaries enter text analysis. Low-relevance images and reaction memes remain visible in the evidence panel without polluting clusters or word clouds.
+Only images with both `high/medium` match relevance and `high/medium` information value enter the final contextual insight. Player portraits, atmosphere photos, and in-progress scoreboard screenshots are excluded. Image evidence never alters comment cleaning, sentiment, clustering, or word clouds.
+
+For API compatibility, the task controls remain named `enable_image_analysis` and `max_image_comments`; they now mean source-context image analysis and total source-image budget.
 
 ## News Context
 

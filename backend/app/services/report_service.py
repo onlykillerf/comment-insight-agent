@@ -35,7 +35,7 @@ class ReportService:
             "",
             insight.news_context_summary if insight else "未生成新闻背景摘要。",
             "",
-            "## 评论配图证据",
+            "## 主帖与权威来源图像证据",
             "",
             *self._image_evidence_lines(task),
             "",
@@ -89,21 +89,30 @@ class ReportService:
 
     def _image_evidence_lines(self, task: Task) -> list[str]:
         rows: list[str] = []
-        for comment in task.raw_comments:
-            analysis = comment.image_analysis or {}
-            if analysis.get("status") != "completed":
+        media_items = task.insight_report.context_media if task.insight_report else []
+        for item in media_items:
+            if not item.get("included_in_summary"):
                 continue
             rows.extend(
                 [
-                    f"- 评论：{comment.content[:240]}",
-                    f"  - 图片：{', '.join(comment.image_urls[:2])}",
-                    f"  - 视觉摘要：{analysis.get('summary', '无')}",
-                    f"  - OCR：{analysis.get('ocr_text') or '无'}",
-                    f"  - 相关性：{analysis.get('relevance', 'unknown')}；模型：{analysis.get('model', 'unknown')}",
-                    f"  - 来源：{comment.source_url}",
+                    f"- 来源：[{item.get('title') or '未命名来源'}]({item.get('source_url') or ''})",
+                    f"  - 来源级别：{item.get('authority_level', 'unknown')}",
+                    f"  - 筛选理由：{'；'.join(item.get('selection_reasons') or []) or '无'}",
+                    f"  - 图片：{', '.join((item.get('image_urls') or [])[:2])}",
+                    f"  - 视觉摘要：{item.get('summary', '无')}",
+                    f"  - 数据点：{'；'.join(item.get('data_points') or []) or '无'}",
+                    f"  - OCR：{item.get('ocr_text') or '无'}",
+                    f"  - 相关性：{item.get('relevance', 'unknown')}；信息量：{item.get('information_value', 'unknown')}；置信度：{item.get('confidence', 'unknown')}；模型：{item.get('model', 'unknown')}",
                 ]
             )
-        return rows or ["- 本次没有可分析的评论配图，或图像分析未启用。"]
+        excluded = [item for item in media_items if not item.get("included_in_summary")]
+        if excluded:
+            rows.append(f"- 图像筛选审计：共审查 {len(media_items)} 张，排除 {len(excluded)} 张。")
+            rows.extend(
+                f"  - 已排除《{item.get('title') or '未命名来源'}》：{item.get('exclusion_reason') or '未通过视觉证据门槛'}"
+                for item in excluded
+            )
+        return rows or ["- 本次没有候选主帖、新闻或官网信息图。"]
 
     def _thread_context_lines(self, task: Task) -> list[str]:
         threads: dict[str, dict[str, str | int]] = {}

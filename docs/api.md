@@ -22,6 +22,7 @@ Base URL: `http://localhost:8000`
 
 Image controls:
 
-- `enable_image_analysis`: enable structured analysis of public images embedded in replies.
-- `max_image_comments`: maximum unique image-bearing comments sent to the vision model, from 0 to 20.
-- `GET /api/tasks/{id}/comments` returns `image_urls` and `image_analysis` for traceability.
+- `enable_image_analysis`: enable structured analysis of selected source-context images.
+- `max_image_comments`: total main-post/news/official image budget sent to the vision model, from 0 to 20. The legacy field name is retained for API compatibility.
+- `GET /api/tasks/{id}/insights` returns `context_media` with source URL, authority level, selection reasons, OCR, data points, confidence, and inclusion status.
+- Reply images are never returned as evidence or sent to the vision model.

@@ -7,7 +7,7 @@ const names: Record<string, string> = {
   understand: "任务理解",
   route: "虎扑路由",
   crawl: "帖子采集/导入",
-  media: "评论配图理解",
+  media: "主帖/新闻图像理解",
   context: "新闻上下文",
   clean: "清洗",
   dedup: "去重",

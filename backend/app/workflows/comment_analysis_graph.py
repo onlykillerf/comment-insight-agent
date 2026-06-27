@@ -75,9 +75,9 @@ class CommentAnalysisGraph:
         graph.set_entry_point("understand")
         graph.add_edge("understand", "route")
         graph.add_edge("route", "crawl")
-        graph.add_edge("crawl", "media")
-        graph.add_edge("media", "context")
-        graph.add_edge("context", "clean")
+        graph.add_edge("crawl", "context")
+        graph.add_edge("context", "media")
+        graph.add_edge("media", "clean")
         graph.add_edge("clean", "dedup")
         graph.add_edge("dedup", "quality")
         graph.add_edge("quality", "sentiment")
@@ -95,8 +95,8 @@ class CommentAnalysisGraph:
             ("understand", self._understand),
             ("route", self._route),
             ("crawl", self._crawl),
-            ("media", self._media),
             ("context", self._context),
+            ("media", self._media),
             ("clean", self._clean),
             ("dedup", self._dedup),
             ("quality", self._quality),
@@ -157,19 +157,14 @@ class CommentAnalysisGraph:
         if name == "crawl":
             return f"raw_comments={raw_count}"
         if name == "media":
-            image_comments = [item for item in state.get("raw_comments", []) if item.get("image_urls")]
-            analyzed = [
-                item for item in image_comments if (item.get("image_analysis") or {}).get("status") == "completed"
-            ]
+            media_items = state.get("context_media_items", [])
+            analyzed = [item for item in media_items if item.get("status") == "completed"]
+            included = [item for item in media_items if item.get("included_in_summary")]
             model = next(
-                (
-                    (item.get("image_analysis") or {}).get("model")
-                    for item in image_comments
-                    if (item.get("image_analysis") or {}).get("model")
-                ),
+                (item.get("model") for item in media_items if item.get("model")),
                 "-",
             )
-            return f"image_comments={len(image_comments)}, analyzed={len(analyzed)}, model={model}"
+            return f"context_media={len(media_items)}, analyzed={len(analyzed)}, included={len(included)}, model={model}"
         if name == "context":
             contexts = state.get("news_context_items", [])
             fetched = len([item for item in contexts if item.get("status") != "error"])
@@ -205,8 +200,10 @@ class CommentAnalysisGraph:
 
     def _media(self, state: dict[str, Any]) -> dict[str, Any]:
         logger.info("MediaUnderstandingAgent started")
-        state["raw_comments"] = self.media_understanding_agent.run(
-            state.get("raw_comments", []), state.get("config", {})
+        state["context_media_items"] = self.media_understanding_agent.run(
+            state.get("raw_comments", []),
+            state.get("news_context_items", []),
+            state.get("config", {}),
         )
         return state
 
@@ -284,15 +281,9 @@ class CommentAnalysisGraph:
             "news_context_count": len(
                 [item for item in state.get("news_context_items", []) if item.get("status") != "error"]
             ),
-            "image_comment_count": len(
-                [item for item in state.get("raw_comments", []) if item.get("image_urls")]
-            ),
-            "image_analyzed_count": len(
-                [
-                    item
-                    for item in state.get("raw_comments", [])
-                    if (item.get("image_analysis") or {}).get("status") == "completed"
-                ]
+            "context_media_count": len(state.get("context_media_items", [])),
+            "context_media_included_count": len(
+                [item for item in state.get("context_media_items", []) if item.get("included_in_summary")]
             ),
         }
         return state

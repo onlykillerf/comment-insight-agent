@@ -189,3 +189,4 @@ class InsightOut(BaseModel):
     context_alignment: list[str]
     fact_opinion_gaps: list[str]
     risks: list[str]
+    context_media: list[dict[str, Any]] = Field(default_factory=list)

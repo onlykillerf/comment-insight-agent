@@ -23,7 +23,7 @@ def test_hupu_public_page_is_converted_to_comments() -> None:
                     "thread": {
                         "tid": "123",
                         "title": "[赛后]马刺 108-104 尼克斯",
-                        "content": "<p>马刺与尼克斯 G6 比赛结束。</p>",
+                        "content": '<p>马刺与尼克斯 G6 比赛结束，附球队数据统计。</p><img src="https://i3.hoopchina.com.cn/team-stat.png">',
                     },
                     "replies": {
                         "total": 2,
@@ -64,9 +64,10 @@ def test_hupu_public_page_is_converted_to_comments() -> None:
     assert len(comments) == 1
     assert comments[0]["content"] == "末节关键球执行很稳。"
     assert comments[0]["like_count"] == 42
-    assert comments[0]["image_urls"] == ["https://i3.hoopchina.com.cn/game-shot.jpg"]
+    assert comments[0]["image_urls"] == []
     assert comments[0]["image_analysis"] == {}
-    assert comments[0]["metadata"]["thread_excerpt"] == "马刺与尼克斯 G6 比赛结束。"
+    assert comments[0]["metadata"]["thread_image_urls"] == ["https://i3.hoopchina.com.cn/team-stat.png"]
+    assert comments[0]["metadata"]["thread_excerpt"] == "马刺与尼克斯 G6 比赛结束，附球队数据统计。"
     assert comments[0]["metadata"]["match_name"] == "马刺 vs 尼克斯 G6"
 
 
@@ -79,8 +80,9 @@ def test_news_article_context_is_extracted() -> None:
     html = """
     <html><head>
       <meta property="og:title" content="G6 赛前伤病与系列赛背景">
+      <meta property="og:image" content="https://official.example.com/injury-report.png">
       <meta name="description" content="主队核心确认出战，系列赛目前 3-2。">
-    </head><body><article><p>双方将在第六场继续争夺，客队需要提升篮板保护。</p></article></body></html>
+    </head><body><article><p>双方将在第六场继续争夺，客队需要提升篮板保护。</p><img src="/lineup.png"><img src="/reaction.gif"></article></body></html>
     """
 
     item = NewsContextAgent().parse_article(html, "https://news.example.com/game-6")
@@ -88,6 +90,10 @@ def test_news_article_context_is_extracted() -> None:
     assert item["title"] == "G6 赛前伤病与系列赛背景"
     assert "系列赛目前 3-2" in item["summary"]
     assert item["status"] == "fetched"
+    assert item["image_urls"] == [
+        "https://official.example.com/injury-report.png",
+        "https://news.example.com/lineup.png",
+    ]
 
 
 def test_news_context_rejects_private_urls() -> None:

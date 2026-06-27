@@ -7,7 +7,7 @@
 - selected public-thread connector
 - optional public-news context
 - fact/opinion comparison
-- bounded SiliconFlow comment-image understanding
+- bounded SiliconFlow source-image understanding for data posts, reports, news, and official pages
 - explicit match-outcome contradiction guardrail
 - removal of strategy cards and A/B testing
 

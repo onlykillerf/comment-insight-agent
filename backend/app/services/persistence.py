@@ -169,6 +169,7 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
             news_context_summary=insight.get("news_context_summary", ""),
             context_alignment=insight.get("context_alignment", []),
             fact_opinion_gaps=insight.get("fact_opinion_gaps", []),
+            context_media=result.get("context_media_items", []),
             platform_differences=[],
             risks=insight.get("risks", []),
             recommendations=[],

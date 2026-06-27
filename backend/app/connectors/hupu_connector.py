@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from datetime import datetime, timezone
@@ -42,12 +43,18 @@ class HupuPublicConnector:
 
         collected: list[NormalizedComment] = []
         seen: set[str] = set()
+        per_thread_limit = max(1, math.ceil(request.max_comments / len(urls)))
         with httpx.Client(headers=self._headers, follow_redirects=True, timeout=20) as client:
             for source_url in urls:
                 thread_id = self._thread_id(source_url)
                 page = 1
                 total_pages = 1
-                while page <= total_pages and len(collected) < request.max_comments:
+                thread_count = 0
+                while (
+                    page <= total_pages
+                    and len(collected) < request.max_comments
+                    and thread_count < per_thread_limit
+                ):
                     page_url = f"https://bbs.hupu.com/{thread_id}-{page}.html"
                     response = client.get(page_url)
                     response.raise_for_status()
@@ -57,10 +64,15 @@ class HupuPublicConnector:
                             continue
                         seen.add(comment["id"])
                         collected.append(comment)
-                        if len(collected) >= request.max_comments:
+                        thread_count += 1
+                        if len(collected) >= request.max_comments or thread_count >= per_thread_limit:
                             break
                     page += 1
-                    if page <= total_pages and len(collected) < request.max_comments:
+                    if (
+                        page <= total_pages
+                        and len(collected) < request.max_comments
+                        and thread_count < per_thread_limit
+                    ):
                         time.sleep(0.35)
         if not collected:
             raise ValueError("No public comments were found in the selected Hupu threads")
@@ -96,11 +108,8 @@ class HupuPublicConnector:
                 continue
             post_html = str(post.get("content") or "")
             content = self._plain_text(post_html)
-            image_urls = self._image_urls(post_html)
-            if not content and not image_urls:
-                continue
             if not content:
-                content = "[图片评论]"
+                continue
             post_id = str(post.get("pid") or sha1(content.encode("utf-8")).hexdigest()[:16])
             author_id = str(post.get("authorId") or (post.get("author") or {}).get("puid") or post_id)
             rows.append(
@@ -115,7 +124,7 @@ class HupuPublicConnector:
                     "publish_time": self._publish_time(post.get("createdAt")),
                     "source_url": canonical_url,
                     "parent_id": None,
-                    "image_urls": image_urls,
+                    "image_urls": [],
                     "image_analysis": {},
                     "metadata": {
                         "source": "hupu_public",

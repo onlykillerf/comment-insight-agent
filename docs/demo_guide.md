@@ -31,7 +31,7 @@ Both demos use MockLLM unless `--real-llm` is passed. Expected output includes d
 
 Use the web task form and choose `Hupu public threads`, or submit the API payload shown in the root README. A real run requires at least one public Hupu thread URL. Add a manual match brief when no stable public news page is available.
 
-With SiliconFlow configured, enable comment-image analysis and keep the default limit of six. The workflow deduplicates image URLs, records each model result, and only injects `high`/`medium` relevance summaries into text analysis.
+With SiliconFlow configured, enable source-image analysis and keep the default limit of six. The workflow ignores reply images, scores main-post/news/official images for information value, analyzes them one by one, and only includes results that pass both relevance and information-value thresholds.
 
 ## Troubleshooting
 
@@ -39,4 +39,5 @@ With SiliconFlow configured, enable comment-image analysis and keep the default 
 - **Hupu returns an error**: do not work around platform controls; use CSV/JSON import.
 - **News extraction is empty**: paste a concise manual background summary.
 - **LLM unavailable**: MockLLM keeps the rest of the workflow runnable.
-- **One image fails**: the error is recorded on that comment; a single transient request is retried and the task continues.
+- **One image fails**: the error is recorded on that source item; a single transient request is retried and the task continues.
+- **No image appears in the report**: the selected posts may contain only player photos, reaction media, or in-progress scoreboard screenshots; these are intentionally excluded.

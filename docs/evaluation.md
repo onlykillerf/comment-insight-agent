@@ -38,13 +38,15 @@
 - no claims based on failed news fetches
 - explicit winner/loser contradictions are removed by the outcome guardrail
 
-## Comment Image Quality
+## Source Image Quality
 
-- public image URL remains traceable to its source comment
+- reply images are absent from normalized comments and provider requests
+- each image remains traceable to its original post, news page, or official URL
 - repeated image URLs do not trigger repeated multimodal calls
-- low/unrelated images do not enter clusters or word clouds
+- player portraits, reaction media, and in-progress scoreboard screenshots are excluded
+- visual evidence never enters comment clusters or word clouds
 - OCR and visual summaries are manually spot-checked against the image
-- per-image errors do not fail the complete task
+- per-source-image errors do not fail the complete task
 
 ## Engineering
 
@@ -52,4 +54,4 @@
 - Hupu parser tests use fixtures, not live network
 - backend tests and frontend production build pass
 - API and frontend types stay aligned
-- configured image cap is respected in real runs
+- configured source-image cap is respected in real runs
