@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables."""
 
-    app_name: str = "Cross-Platform Comment Insight Agent"
+    app_name: str = "Hupu Sports Comment Insight Agent"
     environment: str = "local"
     database_url: str = "sqlite:///./comment_insight.db"
     redis_url: str = "redis://localhost:6379/0"
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     deepseek_api_key: str | None = None
     qwen_api_key: str | None = None
     siliconflow_api_key: str | None = None
-    media_crawler_path: str | None = None
+    siliconflow_vision_model: str = "Qwen/Qwen3.5-4B"
 
     model_config = SettingsConfigDict(
         env_file=(".env", PROJECT_ROOT / ".env"),

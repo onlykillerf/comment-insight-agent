@@ -1,83 +1,43 @@
 # Connectors
 
-Connectors normalize data into the RawComment schema.
+## Supported Inputs
 
-## Interface
+| Connector | Use |
+| --- | --- |
+| `HupuPublicConnector` | Read user-selected public Hupu thread pages and pagination. |
+| `CSVConnector` | Import a normalized local CSV export. |
+| `JsonConnector` | Import JSON or JSONL comments. |
+| `MockConnector` | Run a deterministic basketball/football demo offline. |
 
-Defined in `backend/app/connectors/base.py`:
+## Hupu Public Connector
 
-```python
-class PlatformConnector(Protocol):
-    name: str
+Input URLs must match `https://bbs.hupu.com/<thread-id>.html` or the mobile equivalent. The connector normalizes the first page to `-1.html`, follows public pagination, and parses the page's public `__NEXT_DATA__` payload.
 
-    def fetch_comments(self, request: FetchRequest) -> list[NormalizedComment]:
-        ...
+Collected fields:
+
+- hashed comment and author identifiers
+- plain-text comment content
+- light and reply counts
+- publish time and canonical thread URL
+- public image URLs embedded in reply content
+- thread title and body excerpt
+- board and match metadata
+
+The connector does not search Hupu automatically. Selecting the relevant board, match, and threads remains an explicit user decision, which keeps the sample interpretable. Image URLs are URL-deduplicated before multimodal calls, and `max_image_comments` defaults to 6.
+
+## Local Import Schema
+
+CSV/JSON rows should contain:
+
+```text
+id, platform, topic, content, author_hash, like_count,
+reply_count, publish_time, source_url, parent_id
 ```
-
-`FetchRequest` includes task id, platform, domain, keywords, semantic query, time range, max comments, and optional source path.
-
-## Normalized RawComment Fields
-
-- `id`
-- `platform`
-- `topic`
-- `content`
-- `author_hash`
-- `like_count`
-- `reply_count`
-- `publish_time`
-- `source_url`
-- `parent_id`
-- `metadata`
-
-## Built-in Connectors
-
-### MockConnector
-
-Synthetic comments for local smoke tests.
-
-### CSVConnector
-
-Reads local CSV files with normalized or near-normalized fields.
-
-### JsonConnector
-
-Reads JSON arrays or objects with `comments`.
-
-### MediaCrawlerExportConnector
-
-Reads existing MediaCrawler CSV/JSON/JSONL/SQLite outputs and converts them into RawComment records.
-
-### MediaCrawlerAdapter
-
-Thin wrapper around a local MediaCrawler checkout. It does not copy MediaCrawler source code.
-
-Set:
-
-```bash
-MEDIA_CRAWLER_PATH=/path/to/MediaCrawler
-```
-
-Supported platform aliases:
-
-- `xhs`
-- `dy`
-- `ks`
-- `bili`
-- `wb`
-- `tieba`
-- `zhihu`
-
-Hupu, Reddit, and YouTube remain mock/generic connectors for now.
-
-## Add A Connector
-
-1. Create `backend/app/connectors/my_connector.py`.
-2. Implement `fetch_comments`.
-3. Return RawComment-compatible dicts.
-4. Register the connector in `PlatformRouterAgent`.
-5. Add connector docs and tests.
 
 ## Compliance Boundary
 
-Connectors must not bypass login, CAPTCHA, paywalls, private APIs, anti-bot controls, or platform permissions. Prefer user-provided exports, public data, and mock datasets for demos.
+- Public pages only.
+- No login cookies, private APIs, CAPTCHA handling, or anti-bot bypasses.
+- No usernames in persisted analysis; stable public IDs are hashed.
+- Stop when the platform denies access or changes its page structure.
+- Prefer user-provided exports when direct public-page access is unstable.

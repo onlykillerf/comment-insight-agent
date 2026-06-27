@@ -1,36 +1,27 @@
 # API
 
-基础路径：`http://localhost:8000`
+Base URL: `http://localhost:8000`
 
-| Method | Path | Description |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/api/tasks` | 创建分析任务 |
-| GET | `/api/tasks` | 获取任务列表 |
-| GET | `/api/tasks/{task_id}` | 获取任务详情 |
-| POST | `/api/tasks/{task_id}/run` | 启动任务分析流程 |
-| GET | `/api/tasks/{task_id}/status` | 获取任务执行状态 |
-| GET | `/api/tasks/{task_id}/comments` | 获取评论列表 |
-| GET | `/api/tasks/{task_id}/clusters` | 获取聚类结果 |
-| GET | `/api/tasks/{task_id}/sentiment` | 获取情绪分析结果 |
-| GET | `/api/tasks/{task_id}/painpoints` | 获取痛点分析结果 |
-| GET | `/api/tasks/{task_id}/positive-attributions` | 获取好评归因结果 |
-| GET | `/api/tasks/{task_id}/insights` | 获取洞察报告 |
-| GET | `/api/tasks/{task_id}/strategy-cards` | 获取策略卡片 |
-| GET | `/api/tasks/{task_id}/report/markdown` | 导出 Markdown 报告 |
+| POST | `/api/tasks` | Create a match analysis task. |
+| GET | `/api/tasks` | List tasks. |
+| GET | `/api/tasks/{id}` | Read match configuration and status. |
+| POST | `/api/tasks/{id}/run` | Run the workflow. |
+| GET | `/api/tasks/{id}/status` | Read per-agent progress. |
+| GET | `/api/tasks/{id}/quality` | Read sample quality metrics. |
+| GET | `/api/tasks/{id}/comments` | Read annotated comments. |
+| GET | `/api/tasks/{id}/sentiment` | Read sentiment distribution. |
+| GET | `/api/tasks/{id}/clusters` | Read topic clusters. |
+| GET | `/api/tasks/{id}/wordclouds` | Read weighted word-cloud data. |
+| GET | `/api/tasks/{id}/insights` | Read contextual match insights. |
+| GET | `/api/tasks/{id}/report/markdown` | Export the report. |
+| GET | `/api/media/proxy?url=...` | Display allowlisted public Hupu CDN images with hotlink-safe headers. |
 
-## MediaCrawler Export Payload
+`POST /api/tasks` accepts match fields documented in the root README. `domain` must be `basketball` or `football`; the backend always normalizes `platforms` to `["hupu"]`.
 
-```json
-{
-  "name": "MediaCrawler 导出评论分析",
-  "domain": "game",
-  "platforms": ["weibo"],
-  "keywords": ["广告"],
-  "semantic_query": "分析广告体验相关评论",
-  "max_comments": 200,
-  "data_source": "mediacrawler",
-  "source_path": "data/mediacrawler_weibo_note_comment.jsonl"
-}
-```
+Image controls:
 
-`source_path` 可以指向 MediaCrawler 导出的单个 CSV/JSON/JSONL/SQLite 文件，也可以指向导出目录。路径支持绝对路径，也支持相对项目根目录的路径。
+- `enable_image_analysis`: enable structured analysis of public images embedded in replies.
+- `max_image_comments`: maximum unique image-bearing comments sent to the vision model, from 0 to 20.
+- `GET /api/tasks/{id}/comments` returns `image_urls` and `image_analysis` for traceability.

@@ -1,113 +1,101 @@
-# Cross-Platform Comment Insight Agent
+# Hupu Sports Comment Insight Agent
 
-Turn public comments into evidence-grounded insights, topic clusters, strategy cards, and A/B testing ideas with a Multi-Agent workflow.
+Turn public Hupu match discussions and comment images into sentiment trends, topic clusters, representative opinions, and news-context comparisons.
+
+一个聚焦虎扑篮球与足球板块的赛事评论分析 Multi-Agent 项目：选择板块和具体比赛，导入公开帖子评论，并结合相关新闻背景分析球迷情绪、争议焦点与主要观点。
 
 Repository: https://github.com/onlykillerf/comment-insight-agent
 
-中文定位：一个将多平台公开评论自动转化为情绪洞察、主题聚类、痛点归因、策略卡片和 A/B 实验建议的 Multi-Agent 开源框架。
+![Dashboard](docs/assets/dashboard.png)
 
-## Screenshots
-
-> Screenshots are stored in `docs/assets/`. Regenerate them after UI changes with Playwright or your browser.
-
-| Dashboard | Task Status |
+| Match setup | Agent status |
 | --- | --- |
-| ![Dashboard](docs/assets/dashboard.png) | ![Task status](docs/assets/task-status.png) |
+| ![Match setup](docs/assets/new-task.png) | ![Agent status](docs/assets/task-status.png) |
 
-| Analysis Report | Strategy Cards |
-| --- | --- |
-| ![Analysis report](docs/assets/analysis-report.png) | ![Strategy cards](docs/assets/strategy-cards.png) |
+![Analysis report](docs/assets/analysis-report.png)
 
-## Why This Project
+## Why This Focus
 
-Most comment-analysis tools stop too early:
+通用“跨平台、多领域”设计很容易变成配置很多、结论很浅。本项目现在只解决一个清晰问题：
 
-- They classify sentiment but do not tell you what to do next.
-- They generate word clouds but do not explain evidence or confidence.
-- They collect comments but do not form an analysis loop.
-- They ignore sample quality, duplicates, and noisy comments.
-- They use generic labels that do not fit game, sports, esports, news, or draft-analysis contexts.
+> 对一场具体篮球或足球比赛，虎扑网友在讨论什么，情绪如何，争议来自哪里，评论与新闻事实背景是否一致？
 
-This project builds a full loop:
+分析链路：
 
 ```text
-comment import/collection
-→ cleaning and deduplication
-→ data quality guardrails
-→ sentiment and stance analysis
-→ domain taxonomy attribution
-→ topic clustering
-→ representative comments
-→ LLM insight summary
-→ evidence-grounded strategy cards
-→ A/B testing ideas
+选择篮球/足球
+→ 选择虎扑板块（NBA、世界杯等）
+→ 指定具体比赛
+→ 读取用户指定的公开虎扑帖子
+→ 用 Qwen/Qwen3.5-4B 理解少量唯一评论配图
+→ 清洗、去重和样本质量检查
+→ 情绪与赛事标签分析
+→ 主题聚类与典型评论
+→ 读取可选的公开新闻背景
+→ 对照新闻事实与网友观点
+→ 生成 Markdown 舆情报告
 ```
 
 ## Core Features
 
-- **Multi-Agent workflow**: task understanding, routing, crawling/import, cleaning, deduplication, quality, sentiment, attribution, clustering, sampling, insight, strategy, visualization.
-- **Cross-platform connector interface**: Mock, CSV, JSON, MediaCrawler export/adapter, plus stubs for future public-data connectors.
-- **Data quality guardrails**: raw count, clean count, dedup count, duplicate ratio, noise ratio, language distribution, and sample confidence.
-- **Domain taxonomy**: game, IAA game, esports, sports, news, and NBA draft labels.
-- **Sentiment and stance analysis**: rule-based local baseline that can be replaced by stronger models.
-- **Topic clustering**: HDBSCAN when available, KMeans fallback, and explicit noise clusters.
-- **Representative comment sampling**: high-signal comments selected per cluster.
-- **Evidence-grounded strategy cards**: every card includes evidence comments, affected ratio, confidence, confidence reason, and A/B test design.
-- **MockLLM fallback**: the project runs without real API keys.
-- **Markdown report export**: export a portable report from each task.
-- **Compliance-first crawling design**: no bypassing login, CAPTCHA, paywalls, or platform permissions.
+- **Focused sports scope**: only basketball and football taxonomies are exposed.
+- **Match-first task model**: sport, Hupu board, teams, stage, date, and selected thread URLs.
+- **Hupu public-thread connector**: reads public `bbs.hupu.com` pages and paginated replies selected by the user.
+- **Thread context**: analyzes the original post title and body excerpt, not comments in isolation.
+- **Comment-image understanding**: extracts public reply images and analyzes a bounded, URL-deduplicated subset with SiliconFlow `Qwen/Qwen3.5-4B`.
+- **News context**: accepts a manual match brief or selected public news URLs.
+- **Fact/opinion boundary**: news is treated as context; sampled comments are never presented as verified facts.
+- **Outcome guardrail**: filters LLM claims that contradict an explicit winner/loser relationship in the provided context.
+- **Data quality guardrails**: raw, clean, deduplicated and noise counts with sample-confidence warnings.
+- **Sports sentiment and labels**: basketball and football-specific positive, negative, and stance labels.
+- **Topic clustering**: HDBSCAN when available, with KMeans/rule fallback and an explicit noise cluster.
+- **Representative comments**: comments remain traceable to their original public thread.
+- **Mock-first**: the full workflow runs without a real platform request or LLM key.
+- **MockLLM fallback**: real OpenAI-compatible providers remain optional.
+
+This project does **not** generate strategy cards or A/B testing ideas.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  User[User] --> Frontend[Next.js Frontend]
-  Frontend --> API[FastAPI API]
-  API --> Workflow[LangGraph-compatible Workflow]
-  Workflow --> Connectors[Connectors]
-  Connectors --> Agents[Analysis Agents]
-  Agents --> DB[(SQLite / PostgreSQL)]
-  Agents --> Vector[(Vector Store Facade)]
-  DB --> Report[Report / Strategy Cards]
-  Vector --> Report
-  Report --> Frontend
+  User[User selects board and match] --> UI[Next.js]
+  UI --> API[FastAPI]
+  API --> Flow[Multi-Agent Workflow]
+  Flow --> Hupu[Hupu Public Threads]
+  Flow --> News[Selected Public News]
+  Hupu --> Quality[Cleaning / Dedup / Quality]
+  Hupu --> Vision[Qwen 3.5 Vision]
+  Vision --> Quality
+  Quality --> Analysis[Sentiment / Labels / Clustering]
+  News --> Insight[Context-aware Insight]
+  Analysis --> Insight
+  Insight --> DB[(SQLite / PostgreSQL)]
+  DB --> Report[Dashboard / Markdown Report]
 ```
-
-## Multi-Agent Workflow
 
 ```mermaid
 flowchart TD
   A[TaskUnderstandingAgent] --> B[PlatformRouterAgent]
   B --> C[CommentCrawlerAgent]
-  C --> D[DataCleaningAgent]
-  D --> E[DeduplicationAgent]
-  E --> F[DataQualityAgent]
-  F --> G[SentimentAgent]
-  G --> H[PositiveAttributionAgent]
-  G --> I[PainPointAgent]
-  H --> J[ClusteringAgent]
-  I --> J
+  C --> V[MediaUnderstandingAgent]
+  V --> D[NewsContextAgent]
+  D --> E[DataCleaningAgent]
+  E --> F[DeduplicationAgent]
+  F --> G[DataQualityAgent]
+  G --> H[SentimentAgent]
+  H --> I[SportsAttribution Agents]
+  I --> J[ClusteringAgent]
   J --> K[RepresentativeSamplerAgent]
   K --> L[InsightGenerationAgent]
-  L --> M[StrategyCardAgent]
-  M --> N[VisualizationAgent]
+  L --> M[VisualizationAgent]
 ```
 
-## Quick Start
+## Fast Local Demo
 
-Prerequisites:
+The recommended path uses SQLite, synthetic Hupu-style comments, and MockLLM. Docker is not required.
 
-- Python 3.11+
-- Node.js 20 LTS, recommended `>=20.19.0`
-- npm 10+
-- Git
-- Docker Desktop, optional and only required for Full Stack Mode
-
-### Fast Local Demo, No Docker Required
-
-This is the recommended v0.1 path. It uses SQLite and `MockLLM`, so you can run the full demo without Docker or real API keys.
-
-Windows PowerShell:
+### Windows PowerShell
 
 ```powershell
 git clone https://github.com/onlykillerf/comment-insight-agent.git
@@ -117,220 +105,164 @@ Copy-Item .env.example .env
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
+python -m pip install -e ".\backend[dev]"
 
-cd backend
-python -m pip install -e ".[dev]"
-uvicorn app.main:app --reload
+python backend/scripts/seed_demo_data.py --scenario all
+python backend/scripts/run_demo_task.py --scenario nba_game
 ```
 
-If PowerShell blocks venv activation, run `Set-ExecutionPolicy -Scope Process Bypass` in the same terminal and activate again.
+Start the API in the first terminal:
 
-macOS / Linux:
+```powershell
+python -m uvicorn app.main:app --app-dir backend --reload
+```
+
+Start the frontend in a second terminal with Node.js 20.19+:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:3000.
+
+### macOS / Linux
 
 ```bash
 git clone https://github.com/onlykillerf/comment-insight-agent.git
 cd comment-insight-agent
 cp .env.example .env
 
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
+python -m pip install -e "./backend[dev]"
 
-cd backend
-python -m pip install -e ".[dev]"
-uvicorn app.main:app --reload
+python backend/scripts/seed_demo_data.py --scenario all
+python backend/scripts/run_demo_task.py --scenario world_cup_game
 ```
 
-Start the frontend in a second terminal:
+Then run the same backend and frontend commands shown above.
 
-Windows PowerShell:
-
-```powershell
-cd comment-insight-agent\frontend
-npm install
-npm run dev
-```
-
-macOS / Linux:
+## Demo Scenarios
 
 ```bash
-cd comment-insight-agent/frontend
-npm install
-npm run dev
+python backend/scripts/run_demo_task.py --scenario nba_game
+python backend/scripts/run_demo_task.py --scenario world_cup_game
 ```
 
-### Optional Full Stack Mode
+Each scenario contains 320 synthetic comments and produces:
 
-Docker Compose starts Postgres, Redis, and Qdrant for a fuller local stack. Docker Desktop must be installed and running before this command.
+- data quality metrics and confidence warning
+- sentiment distribution
+- basketball/football-specific labels
+- topic clusters and noise ratio
+- all/positive/negative TF-IDF word clouds
+- representative comments
+- MockLLM or real-LLM contextual insight
+- Markdown report
 
-Windows PowerShell / macOS / Linux:
+## Analyze Real Public Hupu Threads
+
+1. Open **New Match Analysis**.
+2. Select basketball or football and the Hupu board.
+3. Fill in the teams, match stage, and date.
+4. Choose **Hupu public threads** as the data source.
+5. Paste one or more public `https://bbs.hupu.com/<thread-id>.html` URLs.
+6. Optionally add public news URLs or a manual match brief.
+7. Keep image analysis enabled to process up to six unique comment images with `Qwen/Qwen3.5-4B`.
+8. Run the workflow.
+
+The connector reads only public thread pages selected by the user. It does not search the whole site, use login cookies, call private APIs, or bypass platform controls. Image analysis receives only the public image URLs embedded in those replies. If Hupu changes its page structure or rejects the request, use a local CSV/JSON export instead.
+
+Configure SiliconFlow in `.env`:
+
+```dotenv
+LLM_PROVIDER=siliconflow
+LLM_BASE_URL=https://api.siliconflow.cn/v1
+LLM_MODEL=Qwen/Qwen3-8B
+SILICONFLOW_VISION_MODEL=Qwen/Qwen3.5-4B
+SILICONFLOW_API_KEY=your-key
+```
+
+Only `high` and `medium` relevance image summaries enter text analysis. Low-relevance images and reaction memes remain visible in the evidence panel without polluting clusters or word clouds.
+
+## News Context
+
+News context is intentionally bounded:
+
+- up to six user-selected public URLs per task
+- article title, description, publish time, and a bounded body excerpt
+- private/local URLs rejected
+- fetch errors recorded without failing comment analysis
+- LLM prompt explicitly separates news context from sampled fan opinions
+
+## API Task Example
+
+```json
+{
+  "name": "尼克斯 vs 马刺 2026 总决赛 G1 虎扑舆情分析",
+  "domain": "basketball",
+  "platforms": ["hupu"],
+  "board": "nba",
+  "match_name": "尼克斯 vs 马刺 2026 总决赛 G1",
+  "home_team": "马刺",
+  "away_team": "尼克斯",
+  "match_stage": "NBA 总决赛 G1",
+  "match_date": "2026-06-04",
+  "thread_urls": ["https://bbs.hupu.com/639718527.html"],
+  "news_urls": [],
+  "news_context": "可选的比赛事实背景",
+  "keywords": ["判罚", "战术", "关键球"],
+  "semantic_query": "分析情绪、争议焦点和主要观点",
+  "max_comments": 200,
+  "enable_llm": true,
+  "enable_image_analysis": true,
+  "max_image_comments": 6,
+  "data_source": "hupu_public"
+}
+```
+
+Main endpoints:
+
+- `POST /api/tasks`
+- `POST /api/tasks/{id}/run`
+- `GET /api/tasks/{id}/quality`
+- `GET /api/tasks/{id}/sentiment`
+- `GET /api/tasks/{id}/clusters`
+- `GET /api/tasks/{id}/comments`
+- `GET /api/tasks/{id}/insights`
+- `GET /api/tasks/{id}/report/markdown`
+
+## Optional Full Stack Mode
+
+Docker Desktop must be running first:
 
 ```bash
 docker compose up -d
 ```
 
-Open:
-
-- Frontend: `http://localhost:3000`
-- API: `http://localhost:8000`
-- API health: `http://localhost:8000/api/health`
-
-## Run Demo Scenarios
-
-Generate demo datasets:
-
-```bash
-python backend/scripts/seed_demo_data.py
-```
-
-Run complete demo tasks:
-
-```bash
-python backend/scripts/run_demo_task.py --scenario nba_draft
-python backend/scripts/run_demo_task.py --scenario iaa_game
-python backend/scripts/run_demo_task.py --scenario news_event
-```
-
-By default, `run_demo_task.py` forces `LLM_PROVIDER=mock` so demos do not consume real API credits. Add `--real-llm` if you want to use your configured provider.
-
-## Demo Scenarios
-
-### NBA Draft Opinion Analysis
-
-Input: `data/demo/nba_draft_comments.csv`
-
-Output:
-
-- Prospect sentiment and stance
-- Draft-order controversy clusters
-- Player template and team-fit opportunity labels
-- Evidence-grounded strategy cards for draft explainers
-
-Example strategy direction: explain why `顺位过高争议` is a risk theme using representative comments, scouting context, and team-fit analysis.
-
-### IAA Game Review Pain Point Mining
-
-Input: `data/demo/iaa_game_comments.csv`
-
-Output:
-
-- Ad fatigue and forced-ad risk
-- Onboarding friction and retention blockers
-- Positive hooks around lightweight gameplay and reward feedback
-- A/B testing ideas for ad frequency, onboarding copy, and reward triggers
-
-Example strategy direction: reduce `强制广告打断` by mapping evidence comments to journey steps and testing ad-frequency controls.
-
-### News Event Public Opinion Analysis
-
-Input: `data/demo/news_event_comments.csv`
-
-Output:
-
-- Trust and transparency risks
-- Stance divergence and emotional escalation
-- Representative comments for clarification needs
-- Strategy cards for source-backed timeline and clarification content
-
-Example strategy direction: turn `信息不透明` into a clarification card with timeline, sources, and unresolved questions.
-
-## Strategy Card JSON
-
-```json
-{
-  "title": "Explain and monitor `强制广告打断`",
-  "type": "problem_fix / opportunity_amplification / risk_explanation / ab_test",
-  "evidence_comments": [
-    "失败结算强制广告太多，刚进入关键环节就被打断。",
-    "奖励广告可以有，但不要每一关都强制看。"
-  ],
-  "evidence_count": 42,
-  "sample_size": 320,
-  "affected_ratio": "13.1%",
-  "confidence": "medium",
-  "confidence_reason": "Evidence comes from real classified comments, but the sample or sentiment concentration is not yet strong enough for high confidence.",
-  "suggested_actions": [
-    "Map evidence comments to onboarding, failure screen, ad trigger, reward claim, or match result.",
-    "Run an A/B test for ad frequency and reward-trigger timing."
-  ],
-  "expected_impact": "Reduce review risk and retention loss by tying pain points to concrete product experiments.",
-  "ab_test_design": {
-    "control_group": "Current ad trigger flow.",
-    "experiment_group": "Reduced forced-ad frequency with clearer reward copy.",
-    "metrics": ["D1_retention", "session_length", "ad_completion_rate", "negative_review_rate"]
-  }
-}
-```
-
-## Extending The Project
-
-### Add a Platform Connector
-
-Implement `PlatformConnector` in `backend/app/connectors/base.py`:
-
-```python
-class MyConnector:
-    name = "my_platform"
-
-    def fetch_comments(self, request: FetchRequest) -> list[NormalizedComment]:
-        return [...]
-```
-
-Register it in `PlatformRouterAgent`.
-
-### Add a Domain Taxonomy
-
-Add a `DomainTaxonomy` entry in `backend/app/taxonomies/domain_taxonomy.py` with:
-
-- `positive_labels`
-- `negative_labels`
-- `stance_labels`
-- keyword hints for positive, negative, and stance classification
-
-### Add an LLM Provider
-
-Extend `LLMService._provider_config()` and `_has_provider_key()` in `backend/app/services/llm_service.py`. The service expects an OpenAI-compatible chat completions response.
-
-### Add an Agent
-
-Add an agent under `backend/app/agents/`, then wire it into `CommentAnalysisGraph` after the stage that provides its required input.
-
-### Connect MediaCrawler
-
-This repository does not copy MediaCrawler source code. Configure a local checkout:
-
-```bash
-MEDIA_CRAWLER_PATH=/path/to/MediaCrawler
-```
-
-Use `MediaCrawlerAdapter` or import existing MediaCrawler CSV/JSON/JSONL/SQLite exports with `MediaCrawlerExportConnector`.
+SQLite remains the default local database. Docker services are optional infrastructure for further development.
 
 ## Compliance
 
-- Only process public, user-provided, or synthetic sample data.
+- Only process publicly accessible pages explicitly selected by the user.
 - Do not bypass login, CAPTCHA, paywalls, anti-bot controls, or platform permissions.
-- Do not collect private user data.
-- The default demos use mock/sample data.
-- Real platform connectors must be configured and operated by users in compliance with platform terms and local laws.
+- Do not collect private profiles or expose author identities; connectors store an author hash.
+- Respect platform terms, robots policies, rate limits, copyright, and applicable local laws.
+- Prefer synthetic demos or user-provided exports when public-page access is unstable.
 
-## Roadmap
+## Development
 
-- **v0.1 MVP**: mock/sample data, workflow, report page, strategy cards.
-- **v0.2 MediaCrawler Adapter**: local MediaCrawler export normalization and adapter docs.
-- **v0.3 More Domain Taxonomies**: richer game, sports, esports, finance, product-review taxonomies.
-- **v0.4 Online Dashboard**: async tasks, historical comparison, saved reports, team workspace.
-- **v0.5 Evaluation Benchmark**: labeled demo sets, sentiment checks, cluster coherence, strategy-card hallucination checks.
+```bash
+python -m pytest backend/app/tests
+cd frontend
+npx tsc --noEmit
+npm run build
+```
 
-## Documentation
-
-- [Project audit](docs/project_audit.md)
-- [Architecture](docs/architecture.md)
-- [Agent design](docs/agent_design.md)
-- [Connectors](docs/connectors.md)
-- [Domain taxonomy](docs/domain_taxonomy.md)
-- [Strategy cards](docs/strategy_cards.md)
-- [Demo guide](docs/demo_guide.md)
-- [Evaluation](docs/evaluation.md)
+See [architecture](docs/architecture.md), [agent design](docs/agent_design.md), [connectors](docs/connectors.md), [sports taxonomy](docs/domain_taxonomy.md), and [demo guide](docs/demo_guide.md).
 
 ## License
 

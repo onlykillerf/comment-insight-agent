@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_health import router as health_router
+from app.api.routes_media import router as media_router
 from app.api.routes_reports import router as reports_router
 from app.api.routes_tasks import router as tasks_router
 from app.config import get_settings
@@ -33,6 +34,6 @@ def on_startup() -> None:
 
 
 app.include_router(health_router)
+app.include_router(media_router)
 app.include_router(tasks_router)
 app.include_router(reports_router)
-

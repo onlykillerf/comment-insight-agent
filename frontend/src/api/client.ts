@@ -1,4 +1,4 @@
-import type { ClassificationRow, Cluster, CommentItem, DataQuality, Insight, StrategyCard, Task, WordClouds } from "@/types/task";
+import type { ClassificationRow, Cluster, CommentItem, DataQuality, Insight, Task, WordClouds } from "@/types/task";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -31,6 +31,6 @@ export const api = {
   getPainpoints: (taskId: number) => request<ClassificationRow[]>(`/api/tasks/${taskId}/painpoints`),
   getPositiveAttributions: (taskId: number) => request<ClassificationRow[]>(`/api/tasks/${taskId}/positive-attributions`),
   getInsights: (taskId: number) => request<Insight>(`/api/tasks/${taskId}/insights`),
-  getStrategyCards: (taskId: number) => request<StrategyCard[]>(`/api/tasks/${taskId}/strategy-cards`),
+  mediaUrl: (url: string) => `${API_BASE}/api/media/proxy?url=${encodeURIComponent(url)}`,
   markdownUrl: (taskId: number) => `${API_BASE}/api/tasks/${taskId}/report/markdown`
 };

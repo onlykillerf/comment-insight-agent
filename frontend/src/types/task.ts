@@ -11,6 +11,15 @@ export type Task = {
   name: string;
   domain: string;
   platforms: string[];
+  board: string;
+  match_name: string;
+  home_team: string;
+  away_team: string;
+  match_stage: string;
+  match_date: string;
+  thread_urls: string[];
+  news_urls: string[];
+  news_context: string;
   keywords: string[];
   semantic_query: string;
   time_range: Record<string, unknown>;
@@ -19,6 +28,8 @@ export type Task = {
   language: string;
   sentiment_focus: string;
   enable_llm: boolean;
+  enable_image_analysis: boolean;
+  max_image_comments: number;
   data_source: string;
   source_path?: string | null;
   status: string;
@@ -42,6 +53,17 @@ export type CommentItem = {
   painpoint?: string | null;
   positive_attribution?: string | null;
   representative_reason?: string | null;
+  image_urls: string[];
+  image_analysis: {
+    status?: string;
+    model?: string;
+    summary?: string;
+    ocr_text?: string;
+    entities?: string[];
+    relevance?: string;
+    sentiment_cue?: string;
+    error?: string;
+  };
 };
 
 export type Cluster = {
@@ -83,26 +105,12 @@ export type Insight = {
   summary: string;
   positive_insights: string[];
   negative_insights: string[];
-  platform_differences: string[];
+  key_viewpoints: string[];
+  controversies: string[];
+  news_context_summary: string;
+  context_alignment: string[];
+  fact_opinion_gaps: string[];
   risks: string[];
-  recommendations: string[];
-};
-
-export type StrategyCard = {
-  id: number;
-  title: string;
-  type: string;
-  priority: "high" | "medium" | "low";
-  problem_or_opportunity: string;
-  evidence_comments: string[];
-  evidence_count: number;
-  sample_size: number;
-  confidence: "high" | "medium" | "low" | string;
-  confidence_reason: string;
-  affected_ratio: string;
-  suggested_actions: string[];
-  expected_impact: string;
-  ab_test_design: Record<string, unknown>;
 };
 
 export type ClassificationRow = {

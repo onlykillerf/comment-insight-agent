@@ -8,10 +8,19 @@ def test_workflow_generates_complete_demo_result() -> None:
     task = Task(
         id=1,
         name="pytest demo",
-        domain="game",
-        platforms=["weibo", "zhihu", "hupu"],
-        keywords=["广告", "卡顿", "爽"],
-        semantic_query="测试评论闭环",
+        domain="basketball",
+        platforms=["hupu"],
+        board="nba",
+        match_name="马刺 vs 尼克斯 G6",
+        home_team="马刺",
+        away_team="尼克斯",
+        match_stage="总决赛 G6",
+        match_date="2026-06-20",
+        thread_urls=[],
+        news_urls=[],
+        news_context="马刺在系列赛中暂时 3-2 领先，本场为第六场。",
+        keywords=["马刺", "尼克斯", "G6"],
+        semantic_query="分析虎扑网友对马刺和尼克斯 G6 的看法",
         time_range={},
         max_comments=30,
         similarity_threshold=0.92,
@@ -24,10 +33,11 @@ def test_workflow_generates_complete_demo_result() -> None:
 
     result = CommentAnalysisGraph().run(task)
 
-    assert result["summary"]["raw_count"] >= 9
+    assert result["summary"]["raw_count"] >= 12
     assert result["summary"]["deduped_count"] >= 6
+    assert result["summary"]["news_context_count"] == 1
     assert result["insight_report"]["summary"]
-    assert result["strategy_cards"]
-    assert all(len(card["evidence_comments"]) >= 2 for card in result["strategy_cards"])
-    assert all(card["affected_ratio"].endswith("%") for card in result["strategy_cards"])
+    assert result["insight_report"]["fact_opinion_gaps"]
+    assert "strategy_cards" not in result
+    assert "strategy" not in result["agent_progress"]
     assert result["clusters"]

@@ -1,23 +1,23 @@
 ---
-name: Connector request
-about: Request or propose a new platform connector
-title: "[Connector]: "
+name: Hupu parser request
+about: Report a public Hupu thread layout that is not parsed correctly
+title: "[Hupu Parser]: "
 labels: connector
 assignees: ""
 ---
 
-## Platform
+## Public Hupu thread URL
 
-## Data source type
+## Page type
 
-- [ ] Public export
-- [ ] User-uploaded CSV/JSON
-- [ ] Official API
-- [ ] Other
+- [ ] Basketball thread
+- [ ] Football thread
+- [ ] Paginated thread
+- [ ] Local HTML export
 
 ## Compliance notes
 
-Does this require login, CAPTCHA, paywall access, private APIs, or permission bypassing?
+Confirm that the page is publicly accessible without login, CAPTCHA, paywall access, or private APIs.
 
 ## Example schema
 
@@ -25,4 +25,4 @@ Does this require login, CAPTCHA, paywall access, private APIs, or permission by
 {}
 ```
 
-## Expected analysis use case
+## Parser failure or missing fields

@@ -15,7 +15,6 @@ from app.models import (
     RawComment,
     RepresentativeComment,
     SentimentResult,
-    StrategyCard,
     Task,
 )
 from app.workflows.comment_analysis_graph import CommentAnalysisGraph
@@ -28,7 +27,7 @@ def run_and_store_task(db: Session, task: Task) -> dict[str, Any]:
     task.status = "running"
     task.progress = {
         key: {"status": "pending", "duration_ms": None, "error": ""}
-        for key in ["understand", "route", "crawl", "clean", "dedup", "quality", "sentiment", "attribute", "cluster", "sample", "insight", "strategy", "visualize"]
+        for key in ["understand", "route", "crawl", "media", "context", "clean", "dedup", "quality", "sentiment", "attribute", "cluster", "sample", "insight", "visualize"]
     }
     db.commit()
 
@@ -54,7 +53,6 @@ def _clear_task_results(db: Session, task_id: int) -> None:
     db.query(ClusterResult).filter(ClusterResult.task_id == task_id).delete(synchronize_session=False)
     db.query(DataQualityReport).filter(DataQualityReport.task_id == task_id).delete(synchronize_session=False)
     db.query(InsightReport).filter(InsightReport.task_id == task_id).delete(synchronize_session=False)
-    db.query(StrategyCard).filter(StrategyCard.task_id == task_id).delete(synchronize_session=False)
     db.query(CleanComment).filter(CleanComment.task_id == task_id).delete(synchronize_session=False)
     db.query(RawComment).filter(RawComment.task_id == task_id).delete(synchronize_session=False)
     db.flush()
@@ -78,6 +76,8 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
                 publish_time=comment.get("publish_time", ""),
                 source_url=comment.get("source_url", ""),
                 parent_id=comment.get("parent_id"),
+                image_urls=comment.get("image_urls") or [],
+                image_analysis=comment.get("image_analysis") or {},
                 metadata_json=comment.get("metadata") or {},
             )
         )
@@ -164,29 +164,14 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
             summary=insight.get("summary", ""),
             positive_insights=insight.get("positive_insights", []),
             negative_insights=insight.get("negative_insights", []),
-            platform_differences=insight.get("platform_differences", []),
+            key_viewpoints=insight.get("key_viewpoints", []),
+            controversies=insight.get("controversies", []),
+            news_context_summary=insight.get("news_context_summary", ""),
+            context_alignment=insight.get("context_alignment", []),
+            fact_opinion_gaps=insight.get("fact_opinion_gaps", []),
+            platform_differences=[],
             risks=insight.get("risks", []),
-            recommendations=insight.get("recommendations", []),
+            recommendations=[],
         )
     )
-
-    for card in result.get("strategy_cards", []):
-        db.add(
-            StrategyCard(
-                task_id=task.id,
-                title=card.get("title", ""),
-                type=card.get("type", ""),
-                priority=card.get("priority", "low"),
-                problem_or_opportunity=card.get("problem_or_opportunity", ""),
-                evidence_comments=card.get("evidence_comments") or [],
-                evidence_count=int(card.get("evidence_count") or len(card.get("evidence_comments") or [])),
-                sample_size=int(card.get("sample_size") or quality.get("dedup_count") or 0),
-                confidence=card.get("confidence") or "low",
-                confidence_reason=card.get("confidence_reason") or "",
-                affected_ratio=card.get("affected_ratio") or "",
-                suggested_actions=card.get("suggested_actions") or [],
-                expected_impact=card.get("expected_impact") or "",
-                ab_test_design=card.get("ab_test_design") or {},
-            )
-        )
     db.flush()

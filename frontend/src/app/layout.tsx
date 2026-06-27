@@ -5,8 +5,8 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Cross-Platform Comment Insight Agent",
-  description: "Multi-Agent comment insight and strategy generation system",
+  title: "Hupu Sports Comment Insight Agent",
+  description: "Basketball and football match comment insight with optional news context",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico"

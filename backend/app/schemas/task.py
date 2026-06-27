@@ -9,18 +9,29 @@ from pydantic import BaseModel, Field
 class TaskCreate(BaseModel):
     """Payload for creating an analysis task."""
 
-    name: str = Field(default="Demo 评论洞察任务", min_length=1)
-    domain: str = "game"
-    platforms: list[str] = Field(default_factory=lambda: ["hupu", "weibo", "zhihu"])
-    keywords: list[str] = Field(default_factory=lambda: ["广告", "卡顿", "爽"])
-    semantic_query: str = "分析用户对游戏广告体验、玩法爽感和卡顿问题的反馈"
+    name: str = Field(default="虎扑赛事评论分析", min_length=1)
+    domain: str = Field(default="basketball", pattern="^(basketball|football)$")
+    platforms: list[str] = Field(default_factory=lambda: ["hupu"])
+    board: str = "nba"
+    match_name: str = ""
+    home_team: str = ""
+    away_team: str = ""
+    match_stage: str = ""
+    match_date: str = ""
+    thread_urls: list[str] = Field(default_factory=list)
+    news_urls: list[str] = Field(default_factory=list)
+    news_context: str = ""
+    keywords: list[str] = Field(default_factory=list)
+    semantic_query: str = "分析虎扑网友对本场比赛的情绪、争议焦点和主要观点"
     time_range: dict[str, Any] = Field(default_factory=dict)
     max_comments: int = Field(default=120, ge=1, le=5000)
     similarity_threshold: float = Field(default=0.86, ge=0.0, le=1.0)
     language: str = "zh"
     sentiment_focus: str = "all"
     enable_llm: bool = True
-    data_source: str = "mock"
+    enable_image_analysis: bool = True
+    max_image_comments: int = Field(default=6, ge=0, le=20)
+    data_source: str = Field(default="mock", pattern="^(mock|hupu_public|csv|json)$")
     source_path: str | None = None
 
 
@@ -31,6 +42,15 @@ class TaskOut(BaseModel):
     name: str
     domain: str
     platforms: list[str]
+    board: str
+    match_name: str
+    home_team: str
+    away_team: str
+    match_stage: str
+    match_date: str
+    thread_urls: list[str]
+    news_urls: list[str]
+    news_context: str
     keywords: list[str]
     semantic_query: str
     time_range: dict[str, Any]
@@ -39,6 +59,8 @@ class TaskOut(BaseModel):
     language: str
     sentiment_focus: str
     enable_llm: bool
+    enable_image_analysis: bool
+    max_image_comments: int
     data_source: str
     source_path: str | None
     status: str
@@ -83,6 +105,8 @@ class CommentOut(BaseModel):
     painpoint: str | None = None
     positive_attribution: str | None = None
     representative_reason: str | None = None
+    image_urls: list[str] = Field(default_factory=list)
+    image_analysis: dict[str, Any] = Field(default_factory=dict)
 
 
 class SentimentOut(BaseModel):
@@ -159,25 +183,9 @@ class InsightOut(BaseModel):
     summary: str
     positive_insights: list[str]
     negative_insights: list[str]
-    platform_differences: list[str]
+    key_viewpoints: list[str]
+    controversies: list[str]
+    news_context_summary: str
+    context_alignment: list[str]
+    fact_opinion_gaps: list[str]
     risks: list[str]
-    recommendations: list[str]
-
-
-class StrategyCardOut(BaseModel):
-    """Strategy card response."""
-
-    id: int
-    title: str
-    type: str
-    priority: str
-    problem_or_opportunity: str
-    evidence_comments: list[str]
-    evidence_count: int
-    sample_size: int
-    confidence: str
-    confidence_reason: str
-    affected_ratio: str
-    suggested_actions: list[str]
-    expected_impact: str
-    ab_test_design: dict[str, Any]

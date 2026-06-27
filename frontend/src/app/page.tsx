@@ -3,28 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button, Empty, Table, Tag } from "antd";
-import { Activity, BarChart3, CheckCircle2, FileText, GitBranch, MessageSquareText, Plus, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, CheckCircle2, FileText, MessageSquareText, Plus, ShieldCheck, Trophy } from "lucide-react";
 import { api } from "@/api/client";
 import type { Task } from "@/types/task";
 
-const demoScenarios = [
+const demos = [
   {
-    title: "NBA Draft",
-    domain: "nba_draft",
-    description: "Prospect hype, draft-order controversy, player templates, and team-fit narratives.",
-    command: "python backend/scripts/run_demo_task.py --scenario nba_draft"
+    title: "NBA 单场赛后讨论",
+    sport: "basketball",
+    board: "NBA",
+    description: "围绕具体系列赛场次，分析球员表现、战术调整、关键球与判罚争议。",
+    command: "python backend/scripts/run_demo_task.py --scenario nba_game"
   },
   {
-    title: "IAA Game Reviews",
-    domain: "iaa_game",
-    description: "Ad fatigue, onboarding friction, retention blockers, monetization pressure, and UX opportunities.",
-    command: "python backend/scripts/run_demo_task.py --scenario iaa_game"
-  },
-  {
-    title: "News Event",
-    domain: "news",
-    description: "Stance divergence, information transparency, trust risk, and clarification opportunities.",
-    command: "python backend/scripts/run_demo_task.py --scenario news_event"
+    title: "世界杯单场舆情",
+    sport: "football",
+    board: "世界杯",
+    description: "聚焦进攻组织、防线表现、VAR 判罚、教练换人与球迷立场。",
+    command: "python backend/scripts/run_demo_task.py --scenario world_cup_game"
   }
 ];
 
@@ -42,73 +38,51 @@ export default function DashboardPage() {
   const latestCompleted = tasks.find((task) => task.status === "completed");
   const metrics = useMemo(
     () => [
-      { label: "Tasks", value: tasks.length, icon: Activity },
-      { label: "Completed", value: tasks.filter((task) => task.status === "completed").length, icon: CheckCircle2 },
-      { label: "Domains", value: new Set(tasks.map((task) => task.domain)).size, icon: GitBranch }
+      { label: "赛事任务", value: tasks.length, icon: Activity },
+      { label: "已完成", value: tasks.filter((task) => task.status === "completed").length, icon: CheckCircle2 },
+      { label: "篮球", value: tasks.filter((task) => task.domain === "basketball").length, icon: Trophy },
+      { label: "足球", value: tasks.filter((task) => task.domain === "football").length, icon: BarChart3 }
     ],
     [tasks]
   );
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="tool-panel p-6">
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Tag color="cyan">Multi-Agent workflow</Tag>
-            <Tag color="green">Evidence-grounded</Tag>
-            <Tag color="gold">Mock-first</Tag>
-            <Tag color="blue">Compliance-first</Tag>
+      <section className="app-band px-6 py-7">
+        <div className="flex flex-wrap items-end justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-teal-700">
+              <MessageSquareText size={17} />
+              Hupu Sports Comment Insight Agent
+            </div>
+            <h1 className="m-0 text-3xl font-semibold text-ink">从一场比赛，看清虎扑球迷在讨论什么</h1>
+            <p className="m-0 mt-3 text-sm leading-6 text-slate-600">
+              选择篮球或足球板块，指定具体比赛与公开帖子，将评论转化为情绪分布、主题聚类、典型观点和新闻上下文对照。
+            </p>
           </div>
-          <h1 className="m-0 max-w-4xl text-3xl font-semibold leading-tight text-ink">
-            Turn public comments into sentiment insights, topic clusters, strategy cards, and A/B testing ideas.
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-            Cross-Platform Comment Insight Agent is an open-source Multi-Agent framework for game, sports, esports,
-            news, and community feedback analysis. It connects sample or compliant public data to data quality
-            guardrails, domain taxonomy, clustering, representative comments, LLM summaries, and evidence-backed strategy cards.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="flex gap-2">
             <Link href="/tasks/new">
-              <Button type="primary" icon={<Plus size={16} />}>
-                Start Demo
-              </Button>
+              <Button type="primary" icon={<Plus size={16} />}>新建比赛分析</Button>
             </Link>
             {latestCompleted && (
               <Link href={`/tasks/${latestCompleted.id}/report`}>
-                <Button icon={<FileText size={16} />}>View Report</Button>
+                <Button icon={<FileText size={16} />}>查看最新报告</Button>
               </Link>
             )}
           </div>
         </div>
-        <div className="tool-panel p-6">
-          <h2 className="m-0 text-lg font-semibold text-ink">Why It Is Different</h2>
-          <div className="mt-4 space-y-4 text-sm leading-6 text-slate-700">
-            <div className="flex gap-3">
-              <BarChart3 className="mt-1 shrink-0 text-teal-700" size={18} />
-              <span>It does not stop at sentiment or word clouds; it turns comments into evidence-backed decisions.</span>
-            </div>
-            <div className="flex gap-3">
-              <ShieldCheck className="mt-1 shrink-0 text-teal-700" size={18} />
-              <span>Every report includes sample confidence, duplicate ratio, noise ratio, and small-sample warnings.</span>
-            </div>
-            <div className="flex gap-3">
-              <MessageSquareText className="mt-1 shrink-0 text-teal-700" size={18} />
-              <span>Strategy cards must trace back to real comments and explain why their confidence is high, medium, or low.</span>
-            </div>
-          </div>
-        </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
-            <div key={metric.label} className="metric-tile">
+            <div className="metric-tile" key={metric.label}>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">{metric.label}</span>
-                <Icon size={19} color="#1f7a8c" />
+                <Icon size={17} className="text-teal-700" />
               </div>
-              <div className="mt-4 text-3xl font-semibold text-ink">{metric.value}</div>
+              <strong className="mt-2 block text-2xl text-ink">{metric.value}</strong>
             </div>
           );
         })}
@@ -116,20 +90,21 @@ export default function DashboardPage() {
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="m-0 text-lg font-semibold text-ink">Demo Scenarios</h2>
-          <Link href="/tasks/new">
-            <Button icon={<Plus size={16} />}>New Task</Button>
-          </Link>
+          <div>
+            <h2 className="m-0 text-lg font-semibold text-ink">赛事分析模板</h2>
+            <p className="m-0 mt-1 text-sm text-slate-500">产品只保留篮球与足球两条主线。</p>
+          </div>
+          <Tag icon={<ShieldCheck size={13} />}>公开页面 / Mock-first</Tag>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {demoScenarios.map((scenario) => (
-            <article key={scenario.domain} className="tool-panel p-5">
+        <div className="grid gap-4 md:grid-cols-2">
+          {demos.map((demo) => (
+            <article key={demo.sport} className="tool-panel p-5">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="m-0 text-base font-semibold text-ink">{scenario.title}</h3>
-                <Tag>{scenario.domain}</Tag>
+                <h3 className="m-0 text-base font-semibold text-ink">{demo.title}</h3>
+                <Tag>{demo.board}</Tag>
               </div>
-              <p className="min-h-[72px] text-sm leading-6 text-slate-600">{scenario.description}</p>
-              <code className="block rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-100">{scenario.command}</code>
+              <p className="min-h-[48px] text-sm leading-6 text-slate-600">{demo.description}</p>
+              <code className="block rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-100">{demo.command}</code>
             </article>
           ))}
         </div>
@@ -137,48 +112,38 @@ export default function DashboardPage() {
 
       <section className="tool-panel p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="m-0 text-lg font-semibold text-ink">Recent Tasks</h2>
-          <Link href="/tasks/new">
-            <Button icon={<Plus size={16} />} />
-          </Link>
+          <h2 className="m-0 text-lg font-semibold text-ink">最近任务</h2>
+          <Link href="/tasks/new"><Button icon={<Plus size={16} />} /></Link>
         </div>
         {tasks.length ? (
           <Table<Task>
-            loading={loading}
             rowKey="id"
-            pagination={false}
-            dataSource={tasks.slice(0, 8)}
+            loading={loading}
+            pagination={{ pageSize: 8 }}
+            dataSource={tasks}
             columns={[
+              { title: "比赛", dataIndex: "match_name", render: (value: string, row) => value || row.name },
               {
-                title: "Task",
-                dataIndex: "name",
-                render: (name, record) => <Link href={`/tasks/${record.id}`}>{name}</Link>
+                title: "运动 / 板块",
+                width: 170,
+                render: (_, row) => <><Tag>{row.domain === "football" ? "足球" : "篮球"}</Tag><Tag>{row.board}</Tag></>
               },
-              { title: "Domain", dataIndex: "domain", width: 140 },
+              { title: "来源", dataIndex: "data_source", width: 130 },
+              { title: "状态", dataIndex: "status", width: 110, render: (status: string) => <Tag color={status === "completed" ? "green" : "blue"}>{status}</Tag> },
               {
-                title: "Platforms",
-                dataIndex: "platforms",
-                render: (platforms: string[]) => platforms.map((platform) => <Tag key={platform}>{platform}</Tag>)
-              },
-              {
-                title: "Status",
-                dataIndex: "status",
-                width: 130,
-                render: (status: string) => <span className="status-pill bg-slate-100 text-slate-700">{status}</span>
-              },
-              {
-                title: "Report",
-                width: 110,
-                render: (_, record) => (
-                  <Link href={`/tasks/${record.id}/report`}>
-                    <Button size="small">Open</Button>
-                  </Link>
+                title: "操作",
+                width: 150,
+                render: (_, row) => (
+                  <div className="flex gap-3">
+                    <Link href={`/tasks/${row.id}`}>状态</Link>
+                    {row.status === "completed" && <Link href={`/tasks/${row.id}/report`}>报告</Link>}
+                  </div>
                 )
               }
             ]}
           />
         ) : (
-          <Empty description="No tasks yet. Run a demo scenario to see the full workflow." />
+          <Empty description="还没有赛事分析任务" />
         )}
       </section>
     </div>

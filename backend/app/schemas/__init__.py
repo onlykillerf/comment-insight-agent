@@ -6,7 +6,6 @@ from app.schemas.task import (
     PainPointOut,
     PositiveAttributionOut,
     SentimentOut,
-    StrategyCardOut,
     TaskCreate,
     TaskOut,
     TaskRunResponse,
@@ -26,6 +25,5 @@ __all__ = [
     "PainPointOut",
     "PositiveAttributionOut",
     "InsightOut",
-    "StrategyCardOut",
     "WordCloudsOut",
 ]

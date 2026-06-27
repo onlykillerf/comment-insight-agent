@@ -21,7 +21,7 @@ class DataCleaningAgent:
 
         cleaned: list[dict] = []
         for comment in comments:
-            content = str(comment.get("content") or "").strip()
+            content = str(comment.get("analysis_content") or comment.get("content") or "").strip()
             cleaned_text = self.normalize(content)
             if not cleaned_text:
                 continue

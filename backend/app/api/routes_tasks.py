@@ -15,7 +15,6 @@ from app.schemas import (
     PainPointOut,
     PositiveAttributionOut,
     SentimentOut,
-    StrategyCardOut,
     TaskCreate,
     TaskOut,
     TaskRunResponse,
@@ -35,7 +34,16 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
     task = Task(
         name=payload.name,
         domain=payload.domain,
-        platforms=payload.platforms,
+        platforms=["hupu"],
+        board=payload.board,
+        match_name=payload.match_name,
+        home_team=payload.home_team,
+        away_team=payload.away_team,
+        match_stage=payload.match_stage,
+        match_date=payload.match_date,
+        thread_urls=payload.thread_urls,
+        news_urls=payload.news_urls,
+        news_context=payload.news_context,
         keywords=payload.keywords,
         semantic_query=payload.semantic_query,
         time_range=payload.time_range,
@@ -44,6 +52,8 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
         language=payload.language,
         sentiment_focus=payload.sentiment_focus,
         enable_llm=payload.enable_llm,
+        enable_image_analysis=payload.enable_image_analysis,
+        max_image_comments=payload.max_image_comments,
         data_source=payload.data_source,
         source_path=payload.source_path,
         status="created",
@@ -57,9 +67,9 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
 
 @router.get("", response_model=list[TaskOut])
 def list_tasks(db: Session = Depends(get_db)) -> list[Task]:
-    """Return all tasks, newest first."""
+    """Return focused basketball and football tasks, newest first."""
 
-    return db.query(Task).order_by(Task.created_at.desc()).all()
+    return db.query(Task).filter(Task.domain.in_(["basketball", "football"])).order_by(Task.created_at.desc()).all()
 
 
 @router.get("/{task_id}", response_model=TaskOut)
@@ -132,6 +142,8 @@ def get_comments(task_id: int, db: Session = Depends(get_db)) -> list[CommentOut
                     comment.positive_attribution.category if comment.positive_attribution else None
                 ),
                 representative_reason=representative_reasons.get(comment.id),
+                image_urls=comment.raw_comment.image_urls or [],
+                image_analysis=comment.raw_comment.image_analysis or {},
             )
         )
     return rows
@@ -217,36 +229,13 @@ def get_insights(task_id: int, db: Session = Depends(get_db)) -> InsightOut:
         summary=report.summary,
         positive_insights=report.positive_insights,
         negative_insights=report.negative_insights,
-        platform_differences=report.platform_differences,
+        key_viewpoints=report.key_viewpoints,
+        controversies=report.controversies,
+        news_context_summary=report.news_context_summary,
+        context_alignment=report.context_alignment,
+        fact_opinion_gaps=report.fact_opinion_gaps,
         risks=report.risks,
-        recommendations=report.recommendations,
     )
-
-
-@router.get("/{task_id}/strategy-cards", response_model=list[StrategyCardOut])
-def get_strategy_cards(task_id: int, db: Session = Depends(get_db)) -> list[StrategyCardOut]:
-    """Return generated strategy cards."""
-
-    task = _get_task_or_404(db, task_id)
-    return [
-        StrategyCardOut(
-            id=card.id,
-            title=card.title,
-            type=card.type,
-            priority=card.priority,
-            problem_or_opportunity=card.problem_or_opportunity,
-            evidence_comments=card.evidence_comments,
-            evidence_count=card.evidence_count,
-            sample_size=card.sample_size,
-            confidence=card.confidence,
-            confidence_reason=card.confidence_reason,
-            affected_ratio=card.affected_ratio,
-            suggested_actions=card.suggested_actions,
-            expected_impact=card.expected_impact,
-            ab_test_design=card.ab_test_design,
-        )
-        for card in task.strategy_cards
-    ]
 
 
 def _get_task_or_404(db: Session, task_id: int) -> Task:

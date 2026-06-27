@@ -1,93 +1,42 @@
 # Demo Guide
 
-The project includes three reproducible demo scenarios.
-
-## Generate Data
+## Seed Data
 
 ```bash
-python backend/scripts/seed_demo_data.py
+python backend/scripts/seed_demo_data.py --scenario all
 ```
 
-Files:
+This creates:
 
-- `data/demo/nba_draft_comments.csv`
-- `data/demo/iaa_game_comments.csv`
-- `data/demo/news_event_comments.csv`
+- `data/demo/nba_game_comments.csv`
+- `data/demo/world_cup_game_comments.csv`
 
-Each file has at least 300 synthetic comments with positive, neutral, and negative examples.
+Each dataset contains 320 synthetic Hupu-style comments about one match.
 
-## Run Demos
+## Run Basketball Demo
 
 ```bash
-python backend/scripts/run_demo_task.py --scenario nba_draft
-python backend/scripts/run_demo_task.py --scenario iaa_game
-python backend/scripts/run_demo_task.py --scenario news_event
+python backend/scripts/run_demo_task.py --scenario nba_game
 ```
 
-The script prints:
+## Run Football Demo
 
-- task id
-- summary
-- report URL
-- Markdown export URL
+```bash
+python backend/scripts/run_demo_task.py --scenario world_cup_game
+```
 
-## Expected Outputs
+Both demos use MockLLM unless `--real-llm` is passed. Expected output includes data quality, sentiment, sports labels, clusters, word clouds, representative comments, contextual insight, and a Markdown report.
 
-Every demo should generate:
+## Real Hupu Run
 
-- DataQualityReport
-- sentiment distribution
-- positive and negative taxonomy labels
-- topic clusters and noise cluster
-- representative comments
-- LLM or MockLLM insight summary
-- evidence-grounded strategy cards
-- TF-IDF word clouds
-- Markdown report
+Use the web task form and choose `Hupu public threads`, or submit the API payload shown in the root README. A real run requires at least one public Hupu thread URL. Add a manual match brief when no stable public news page is available.
 
-## Scenario Details
+With SiliconFlow configured, enable comment-image analysis and keep the default limit of six. The workflow deduplicates image URLs, records each model result, and only injects `high`/`medium` relevance summaries into text analysis.
 
-### NBA Draft
+## Troubleshooting
 
-Focus:
-
-- prospect hype
-- draft-order debate
-- player templates
-- team fit
-- fan disagreement
-
-### IAA Game
-
-Focus:
-
-- forced ads
-- ad frequency
-- lag/heat
-- payment pressure
-- retention risk
-- reward feedback
-
-### News Event
-
-Focus:
-
-- information transparency
-- stance controversy
-- trust risk
-- emotional polarization
-- clarification needs
-
-## Common Issues
-
-### The report says sample confidence is low
-
-This is expected for small samples. Increase `--max-comments` or use the 300+ demo CSVs.
-
-### The LLM summary is mock
-
-By default, demo tasks use MockLLM to avoid consuming API credits. Add `--real-llm` to use your configured provider.
-
-### Strategy cards are fewer than expected
-
-Cards require at least two real evidence comments. The system intentionally does not generate unsupported cards.
+- **Small sample warning**: add more relevant match threads, not unrelated board pages.
+- **Hupu returns an error**: do not work around platform controls; use CSV/JSON import.
+- **News extraction is empty**: paste a concise manual background summary.
+- **LLM unavailable**: MockLLM keeps the rest of the workflow runnable.
+- **One image fails**: the error is recorded on that comment; a single transient request is retried and the task continues.

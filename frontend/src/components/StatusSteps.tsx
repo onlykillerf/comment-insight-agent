@@ -5,17 +5,18 @@ import type { AgentProgress } from "@/types/task";
 
 const names: Record<string, string> = {
   understand: "任务理解",
-  route: "平台路由",
-  crawl: "采集/导入",
+  route: "虎扑路由",
+  crawl: "帖子采集/导入",
+  media: "评论配图理解",
+  context: "新闻上下文",
   clean: "清洗",
   dedup: "去重",
   quality: "数据质量",
   sentiment: "情绪",
-  attribute: "归因/痛点",
+  attribute: "赛事观点标签",
   cluster: "聚类",
   sample: "代表评论",
-  insight: "洞察",
-  strategy: "策略",
+  insight: "上下文洞察",
   visualize: "可视化"
 };
 

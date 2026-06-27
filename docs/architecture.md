@@ -1,85 +1,45 @@
 # Architecture
 
-## System Overview
+## Product Boundary
 
-Cross-Platform Comment Insight Agent is a local-first web application:
+The application analyzes one basketball or football match at a time. A task is anchored by:
 
-- Frontend: Next.js, TypeScript, Ant Design, ECharts.
-- Backend: FastAPI, SQLAlchemy, LangGraph-compatible workflow.
-- Storage: SQLite by default; PostgreSQL, Redis, and Qdrant are available through `docker-compose.yml`.
-- Analysis: rule-based baselines, deterministic embeddings, domain taxonomy, optional OpenAI-compatible LLM providers.
-
-```mermaid
-flowchart LR
-  Browser[Browser] --> Frontend[Next.js Frontend]
-  Frontend --> API[FastAPI API]
-  API --> DB[(SQLite / PostgreSQL)]
-  API --> Workflow[CommentAnalysisGraph]
-  Workflow --> Connectors[Mock / CSV / JSON / MediaCrawler]
-  Workflow --> Agents[Cleaning / Dedup / Sentiment / Taxonomy / Cluster / Strategy]
-  Agents --> DB
-  Agents --> Vector[Vector Store Facade]
-  DB --> Reports[Reports and Strategy Cards]
-  Reports --> Frontend
-```
+- sport: `basketball` or `football`
+- Hupu board, such as `nba` or `world_cup`
+- home team, away team, stage, and date
+- user-selected public Hupu thread URLs or a local CSV/JSON export
+- optional public news URLs or a manual match brief
 
 ## Data Flow
 
-1. User creates a `Task`.
-2. `PlatformRouterAgent` maps `data_source` to connector plans.
-3. Connectors normalize records into RawComment dictionaries.
-4. Cleaning and deduplication produce CleanComment records.
-5. DataQualityReport is computed from raw, clean, deduped, duplicate, noise, and language metrics.
-6. Sentiment and taxonomy agents annotate comments.
-7. Clustering groups comments and creates explicit noise clusters.
-8. RepresentativeSamplerAgent selects high-signal examples.
-9. InsightGenerationAgent summarizes structured results with MockLLM or a real provider.
-10. StrategyCardAgent generates evidence-grounded cards.
-11. VisualizationService builds frontend chart payloads.
-12. Persistence stores all artifacts for API and Markdown export.
+```mermaid
+flowchart TD
+  UI[Next.js task form] --> API[FastAPI]
+  API --> Task[TaskUnderstandingAgent]
+  Task --> Router[PlatformRouterAgent]
+  Router --> Comments[Hupu / CSV / JSON / Mock]
+  Comments --> Media[MediaUnderstandingAgent]
+  Media --> Context[NewsContextAgent]
+  Context --> Clean[Clean + Deduplicate + Quality]
+  Clean --> Analyze[Sentiment + Sports Labels + Clusters]
+  Analyze --> Sample[Representative Comments]
+  Sample --> Insight[Context-aware Insight]
+  Insight --> Store[(SQLAlchemy)]
+  Store --> Report[Dashboard + Markdown]
+```
 
-## Storage Design
+## Storage
 
-Main tables in `backend/app/models/records.py`:
+- `tasks`: match identity, selected Hupu threads, optional news context, image-analysis limits, runtime settings, and agent progress.
+- `raw_comments`: normalized public comments with author hashes, source URLs, public image URLs, and structured image analysis.
+- `clean_comments`: cleaned text, duplicate status, quality score, sentiment, and sports labels.
+- `data_quality_reports`: sample counts, duplicate/noise ratios, language distribution, and confidence.
+- `cluster_results`: topic size, keywords, sentiment distribution, noise flag, and representative comments.
+- `representative_comments`: traceable high-signal examples.
+- `insight_reports`: viewpoints, controversies, news context comparison, fact/opinion gaps, and risks.
 
-- `tasks`
-- `raw_comments`
-- `clean_comments`
-- `comment_embeddings`
-- `sentiment_results`
-- `painpoint_results`
-- `positive_attribution_results`
-- `cluster_results`
-- `representative_comments`
-- `data_quality_reports`
-- `insight_reports`
-- `strategy_cards`
+SQLite is the local default. Small additive schema upgrades keep existing demo databases usable.
 
-The project currently uses SQLAlchemy `create_all` and small additive SQLite upgrades. Production deployments should add Alembic migrations.
+## Trust Boundary
 
-## Frontend / Backend Interaction
-
-Frontend API wrapper: `frontend/src/api/client.ts`
-
-Important routes:
-
-- `POST /api/tasks`
-- `POST /api/tasks/{id}/run`
-- `GET /api/tasks/{id}/status`
-- `GET /api/tasks/{id}/quality`
-- `GET /api/tasks/{id}/comments`
-- `GET /api/tasks/{id}/sentiment`
-- `GET /api/tasks/{id}/clusters`
-- `GET /api/tasks/{id}/wordclouds`
-- `GET /api/tasks/{id}/strategy-cards`
-- `GET /api/tasks/{id}/report/markdown`
-
-## Deployment Notes
-
-The MVP runs locally with SQLite. Docker Compose starts optional infrastructure:
-
-- PostgreSQL
-- Redis
-- Qdrant
-
-The workflow is synchronous today. For production, move task execution to a queue and stream progress updates to the frontend.
+The crawler reads only URLs explicitly supplied by the user. News and thread fetch failures are visible; the workflow does not use authentication cookies or private APIs. Public reply images are sent to SiliconFlow only when image analysis is enabled and are capped per task. News text is context, while comments and image interpretations remain sampled evidence rather than verified facts.

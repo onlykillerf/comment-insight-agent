@@ -16,11 +16,14 @@ class InsightGenerationAgent:
 
         if not context.get("config", {}).get("enable_llm", True):
             return {
-                "summary": "LLM 洞察未启用；本次仅输出规则分析、聚类结果和策略卡片。",
+                "summary": "LLM 洞察未启用；本次仅输出规则分析、聚类结果和典型评论。",
                 "positive_insights": [],
                 "negative_insights": [],
-                "platform_differences": [],
+                "key_viewpoints": [],
+                "controversies": [],
+                "news_context_summary": "",
+                "context_alignment": [],
+                "fact_opinion_gaps": [],
                 "risks": [],
-                "recommendations": ["如需生成自然语言洞察，请启用 LLM 并确认 provider 可用。"],
             }
         return self.llm_service.generate_insight(context)

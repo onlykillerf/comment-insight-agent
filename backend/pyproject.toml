@@ -1,7 +1,7 @@
 [project]
 name = "comment-insight-agent-backend"
 version = "0.1.0"
-description = "Cross-platform comment insight Multi-Agent backend"
+description = "Hupu basketball and football match comment insight backend"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.111.0",
@@ -27,4 +27,3 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["app/tests"]
-

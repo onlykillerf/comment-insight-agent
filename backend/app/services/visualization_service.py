@@ -13,7 +13,7 @@ class VisualizationService:
         """Return chart and word-cloud structures."""
 
         comments = context.get("comments", [])
-        domain = context.get("config", {}).get("domain", "game")
+        domain = context.get("config", {}).get("domain", "basketball")
         clean_comments = [comment for comment in comments if not comment.get("is_duplicate")]
         sentiments = Counter(comment.get("sentiment", {}).get("label", "neutral") for comment in clean_comments)
         platforms = Counter(comment.get("platform", "unknown") for comment in clean_comments)
@@ -30,7 +30,6 @@ class VisualizationService:
             "negative_wordcloud": tfidf_wordcloud(clean_comments, domain=domain, sentiment="negative"),
             "wordcloud_explanations": self.wordcloud_explanations(clean_comments),
             "representative_comments": context.get("representatives", []),
-            "strategy_cards": context.get("strategy_cards", []),
         }
 
     def wordcloud_payload(self, comments: list[dict[str, Any]], domain: str) -> dict[str, Any]:

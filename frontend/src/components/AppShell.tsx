@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, ClipboardList, LayoutDashboard, Lightbulb } from "lucide-react";
+import { BarChart3, ClipboardList, LayoutDashboard } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/tasks/new", label: "New Task", icon: ClipboardList },
-  { href: "/strategy-cards", label: "Cards", icon: Lightbulb }
+  { href: "/tasks/new", label: "New Match Analysis", icon: ClipboardList }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -16,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
           <Link href="/" className="flex items-center gap-2 font-semibold text-ink">
             <BarChart3 size={22} color="#1f7a8c" />
-            <span>Comment Insight Agent</span>
+            <span>Hupu Sports Insight</span>
           </Link>
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
@@ -35,4 +34,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

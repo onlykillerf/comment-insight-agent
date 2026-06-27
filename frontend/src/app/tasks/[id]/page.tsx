@@ -78,6 +78,9 @@ export default function TaskDetailPage() {
                 data source: {task.data_source}
               </Tag>
               <Tag color={task.enable_llm ? "cyan" : "default"}>{task.enable_llm ? "LLM enabled" : "LLM disabled"}</Tag>
+              <Tag color={task.enable_image_analysis ? "geekblue" : "default"}>
+                {task.enable_image_analysis ? `Vision enabled · max ${task.max_image_comments}` : "Vision disabled"}
+              </Tag>
               {quality?.warning && <Tag color="orange">{quality.warning}</Tag>}
               {quality && <Tag color="purple">sample confidence: {quality.sample_confidence_level}</Tag>}
             </div>
@@ -86,14 +89,16 @@ export default function TaskDetailPage() {
           <section className="tool-panel p-5">
             <Descriptions column={2} size="small">
               <Descriptions.Item label="状态">{task.status}</Descriptions.Item>
-              <Descriptions.Item label="领域">{task.domain}</Descriptions.Item>
-              <Descriptions.Item label="平台">
-                {task.platforms.map((platform) => (
-                  <Tag key={platform}>{platform}</Tag>
-                ))}
-              </Descriptions.Item>
+              <Descriptions.Item label="运动">{task.domain === "football" ? "足球" : "篮球"}</Descriptions.Item>
+              <Descriptions.Item label="虎扑板块"><Tag>{task.board}</Tag></Descriptions.Item>
+              <Descriptions.Item label="比赛">{task.match_name || `${task.home_team} vs ${task.away_team}`}</Descriptions.Item>
+              <Descriptions.Item label="比赛阶段">{task.match_stage || "-"}</Descriptions.Item>
+              <Descriptions.Item label="比赛日期">{task.match_date || "-"}</Descriptions.Item>
+              <Descriptions.Item label="虎扑帖子">{task.thread_urls.length || (task.data_source === "mock" ? "Mock" : 0)}</Descriptions.Item>
+              <Descriptions.Item label="新闻上下文">{task.news_urls.length + (task.news_context ? 1 : 0)} 条</Descriptions.Item>
               <Descriptions.Item label="关键词">{task.keywords.join(" / ")}</Descriptions.Item>
               <Descriptions.Item label="最大评论数">{task.max_comments}</Descriptions.Item>
+              <Descriptions.Item label="配图理解">{task.enable_image_analysis ? `Qwen/Qwen3.5-4B，最多 ${task.max_image_comments} 条` : "关闭"}</Descriptions.Item>
               <Descriptions.Item label="相似度阈值">{task.similarity_threshold}</Descriptions.Item>
               <Descriptions.Item label="语义查询">{task.semantic_query}</Descriptions.Item>
             </Descriptions>

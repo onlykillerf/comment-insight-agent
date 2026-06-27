@@ -24,8 +24,17 @@ class Task(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    domain: Mapped[str] = mapped_column(String(50), default="game", nullable=False)
+    domain: Mapped[str] = mapped_column(String(50), default="basketball", nullable=False)
     platforms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    board: Mapped[str] = mapped_column(String(80), default="nba", nullable=False)
+    match_name: Mapped[str] = mapped_column(String(240), default="", nullable=False)
+    home_team: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    away_team: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    match_stage: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    match_date: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    thread_urls: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    news_urls: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    news_context: Mapped[str] = mapped_column(Text, default="", nullable=False)
     keywords: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     semantic_query: Mapped[str] = mapped_column(Text, default="", nullable=False)
     time_range: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
@@ -34,6 +43,8 @@ class Task(TimestampMixin, Base):
     language: Mapped[str] = mapped_column(String(30), default="zh", nullable=False)
     sentiment_focus: Mapped[str] = mapped_column(String(30), default="all", nullable=False)
     enable_llm: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    enable_image_analysis: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    max_image_comments: Mapped[int] = mapped_column(Integer, default=6, nullable=False)
     data_source: Mapped[str] = mapped_column(String(40), default="mock", nullable=False)
     source_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(40), default="created", nullable=False)
@@ -51,7 +62,6 @@ class Task(TimestampMixin, Base):
     insight_report: Mapped["InsightReport | None"] = relationship(
         cascade="all, delete-orphan", back_populates="task", uselist=False
     )
-    strategy_cards: Mapped[list["StrategyCard"]] = relationship(cascade="all, delete-orphan", back_populates="task")
 
 
 class RawComment(Base):
@@ -70,6 +80,8 @@ class RawComment(Base):
     publish_time: Mapped[str] = mapped_column(String(50), default="", nullable=False)
     source_url: Mapped[str] = mapped_column(Text, default="", nullable=False)
     parent_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    image_urls: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    image_analysis: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict, nullable=False)
 
     task: Mapped[Task] = relationship(back_populates="raw_comments")
@@ -201,6 +213,12 @@ class InsightReport(Base):
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     positive_insights: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     negative_insights: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    key_viewpoints: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    controversies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    news_context_summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    context_alignment: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    fact_opinion_gaps: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    # Retained internally so existing SQLite databases remain insert-compatible.
     platform_differences: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     risks: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     recommendations: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
@@ -225,27 +243,3 @@ class DataQualityReport(Base):
     warning: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
     task: Mapped[Task] = relationship(back_populates="data_quality_report")
-
-
-class StrategyCard(Base):
-    """Actionable strategy card generated from analysis evidence."""
-
-    __tablename__ = "strategy_cards"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), index=True, nullable=False)
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    type: Mapped[str] = mapped_column(String(80), nullable=False)
-    priority: Mapped[str] = mapped_column(String(30), nullable=False)
-    problem_or_opportunity: Mapped[str] = mapped_column(Text, nullable=False)
-    evidence_comments: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    evidence_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    sample_size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    confidence: Mapped[str] = mapped_column(String(30), default="low", nullable=False)
-    confidence_reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    affected_ratio: Mapped[str] = mapped_column(String(80), default="", nullable=False)
-    suggested_actions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    expected_impact: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    ab_test_design: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
-
-    task: Mapped[Task] = relationship(back_populates="strategy_cards")

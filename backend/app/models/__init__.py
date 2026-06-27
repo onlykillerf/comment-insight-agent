@@ -9,7 +9,6 @@ from app.models.records import (
     RawComment,
     RepresentativeComment,
     SentimentResult,
-    StrategyCard,
     Task,
 )
 
@@ -25,5 +24,4 @@ __all__ = [
     "ClusterResult",
     "RepresentativeComment",
     "InsightReport",
-    "StrategyCard",
 ]
