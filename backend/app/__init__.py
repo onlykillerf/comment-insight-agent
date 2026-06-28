@@ -1,2 +1,1 @@
-"""Backend package for Cross-Platform Comment Insight Agent."""
-
+"""Backend package for Hupu Sports Comment Insight Agent."""

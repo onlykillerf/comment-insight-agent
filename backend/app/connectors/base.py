@@ -19,6 +19,14 @@ class FetchRequest:
     time_range: dict[str, Any] = field(default_factory=dict)
     max_comments: int = 100
     source_path: str | None = None
+    source_urls: list[str] = field(default_factory=list)
+    board: str = ""
+    match_name: str = ""
+    home_team: str = ""
+    away_team: str = ""
+    match_stage: str = ""
+    match_date: str = ""
+    field_mapping: dict[str, str] = field(default_factory=dict)
 
 
 class PlatformConnector(Protocol):
@@ -28,4 +36,3 @@ class PlatformConnector(Protocol):
 
     def fetch_comments(self, request: FetchRequest) -> list[NormalizedComment]:
         """Return normalized public comments without bypassing platform controls."""
-

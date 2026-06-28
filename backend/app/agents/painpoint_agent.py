@@ -6,7 +6,7 @@ from app.taxonomies import classify_label
 class PainPointAgent:
     """Analyze negative comment categories using domain taxonomy."""
 
-    def run(self, comments: list[dict], domain: str = "game") -> list[dict]:
+    def run(self, comments: list[dict], domain: str = "basketball") -> list[dict]:
         """Attach pain point for negative comments."""
 
         for comment in comments:

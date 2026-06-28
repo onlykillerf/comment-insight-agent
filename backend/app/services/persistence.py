@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models import (
+    ABTestDraft,
     CleanComment,
     ClusterResult,
     CommentEmbedding,
@@ -18,27 +20,96 @@ from app.models import (
     StrategyCard,
     Task,
 )
+from app.services.strategy_card_service import StrategyCardService
+from app.services.exceptions import TaskCancelledError
 from app.workflows.comment_analysis_graph import CommentAnalysisGraph
 
 
-def run_and_store_task(db: Session, task: Task) -> dict[str, Any]:
+AGENT_STEPS = [
+    "understand",
+    "route",
+    "crawl",
+    "context",
+    "media",
+    "clean",
+    "dedup",
+    "quality",
+    "sentiment",
+    "attribute",
+    "cluster",
+    "sample",
+    "insight",
+    "visualize",
+]
+
+
+def initial_progress() -> dict[str, dict[str, Any]]:
+    return {
+        key: {
+            "status": "pending",
+            "duration_ms": None,
+            "error": "",
+            "input_summary": "",
+            "output_summary": "",
+        }
+        for key in AGENT_STEPS
+    }
+
+
+def run_and_store_task(
+    db: Session,
+    task: Task,
+    progress_callback: Any | None = None,
+    cancel_check: Any | None = None,
+) -> dict[str, Any]:
     """Run the full workflow and persist analysis artifacts."""
 
     _clear_task_results(db, task.id)
     task.status = "running"
-    task.progress = {
-        key: {"status": "pending", "duration_ms": None, "error": ""}
-        for key in ["understand", "route", "crawl", "clean", "dedup", "quality", "sentiment", "attribute", "cluster", "sample", "insight", "strategy", "visualize"]
-    }
+    task.error_message = ""
+    if cancel_check is None:
+        task.cancel_requested = False
+    task.started_at = task.started_at or datetime.now(timezone.utc)
+    task.finished_at = None
+    task.progress = initial_progress()
     db.commit()
+    if progress_callback:
+        progress_callback(task.progress)
 
-    result = CommentAnalysisGraph().run(task)
-    _store_result(db, task, result)
-    task.status = "completed"
-    task.progress = result.get("agent_progress") or task.progress
-    db.commit()
-    db.refresh(task)
-    return result.get("summary", {})
+    try:
+        result = CommentAnalysisGraph(
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        ).run(task)
+        if cancel_check and cancel_check():
+            raise TaskCancelledError("任务已由用户取消")
+        _store_result(db, task, result)
+        task.status = "completed"
+        task.error_message = ""
+        task.finished_at = datetime.now(timezone.utc)
+        task.progress = result.get("agent_progress") or task.progress
+        db.commit()
+        db.refresh(task)
+        return result.get("summary", {})
+    except TaskCancelledError as exc:
+        db.rollback()
+        current = db.get(Task, task.id)
+        if current:
+            current.status = "cancelled"
+            current.error_message = str(exc)
+            current.finished_at = datetime.now(timezone.utc)
+            current.cancel_requested = True
+            db.commit()
+        raise
+    except Exception as exc:
+        db.rollback()
+        current = db.get(Task, task.id)
+        if current:
+            current.status = "failed"
+            current.error_message = str(exc)[:2000]
+            current.finished_at = datetime.now(timezone.utc)
+            db.commit()
+        raise
 
 
 def _clear_task_results(db: Session, task_id: int) -> None:
@@ -54,6 +125,9 @@ def _clear_task_results(db: Session, task_id: int) -> None:
     db.query(ClusterResult).filter(ClusterResult.task_id == task_id).delete(synchronize_session=False)
     db.query(DataQualityReport).filter(DataQualityReport.task_id == task_id).delete(synchronize_session=False)
     db.query(InsightReport).filter(InsightReport.task_id == task_id).delete(synchronize_session=False)
+    card_ids = [row[0] for row in db.query(StrategyCard.id).filter(StrategyCard.task_id == task_id).all()]
+    if card_ids:
+        db.query(ABTestDraft).filter(ABTestDraft.strategy_card_id.in_(card_ids)).delete(synchronize_session=False)
     db.query(StrategyCard).filter(StrategyCard.task_id == task_id).delete(synchronize_session=False)
     db.query(CleanComment).filter(CleanComment.task_id == task_id).delete(synchronize_session=False)
     db.query(RawComment).filter(RawComment.task_id == task_id).delete(synchronize_session=False)
@@ -78,6 +152,8 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
                 publish_time=comment.get("publish_time", ""),
                 source_url=comment.get("source_url", ""),
                 parent_id=comment.get("parent_id"),
+                image_urls=comment.get("image_urls") or [],
+                image_analysis=comment.get("image_analysis") or {},
                 metadata_json=comment.get("metadata") or {},
             )
         )
@@ -95,6 +171,7 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
             quality_score=float(comment.get("quality_score") or 0),
             is_duplicate=bool(comment.get("is_duplicate")),
             duplicate_group_id=comment.get("duplicate_group_id"),
+            cluster_id=comment.get("cluster_id"),
         )
         db.add(clean)
         db.flush()
@@ -164,29 +241,17 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
             summary=insight.get("summary", ""),
             positive_insights=insight.get("positive_insights", []),
             negative_insights=insight.get("negative_insights", []),
-            platform_differences=insight.get("platform_differences", []),
+            key_viewpoints=insight.get("key_viewpoints", []),
+            controversies=insight.get("controversies", []),
+            news_context_summary=insight.get("news_context_summary", ""),
+            context_alignment=insight.get("context_alignment", []),
+            fact_opinion_gaps=insight.get("fact_opinion_gaps", []),
+            context_media=result.get("context_media_items", []),
+            platform_differences=[],
             risks=insight.get("risks", []),
-            recommendations=insight.get("recommendations", []),
+            recommendations=[],
         )
     )
-
-    for card in result.get("strategy_cards", []):
-        db.add(
-            StrategyCard(
-                task_id=task.id,
-                title=card.get("title", ""),
-                type=card.get("type", ""),
-                priority=card.get("priority", "low"),
-                problem_or_opportunity=card.get("problem_or_opportunity", ""),
-                evidence_comments=card.get("evidence_comments") or [],
-                evidence_count=int(card.get("evidence_count") or len(card.get("evidence_comments") or [])),
-                sample_size=int(card.get("sample_size") or quality.get("dedup_count") or 0),
-                confidence=card.get("confidence") or "low",
-                confidence_reason=card.get("confidence_reason") or "",
-                affected_ratio=card.get("affected_ratio") or "",
-                suggested_actions=card.get("suggested_actions") or [],
-                expected_impact=card.get("expected_impact") or "",
-                ab_test_design=card.get("ab_test_design") or {},
-            )
-        )
+    for card in StrategyCardService().build(result):
+        db.add(StrategyCard(task_id=task.id, **card))
     db.flush()

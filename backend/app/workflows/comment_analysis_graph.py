@@ -10,15 +10,17 @@ from app.agents.clustering_agent import ClusteringAgent
 from app.agents.crawler_agent import CommentCrawlerAgent
 from app.agents.dedup_agent import DeduplicationAgent
 from app.agents.insight_agent import InsightGenerationAgent
+from app.agents.media_understanding_agent import MediaUnderstandingAgent
+from app.agents.news_context_agent import NewsContextAgent
 from app.agents.painpoint_agent import PainPointAgent
 from app.agents.platform_router_agent import PlatformRouterAgent
 from app.agents.positive_attribution_agent import PositiveAttributionAgent
 from app.agents.sampler_agent import RepresentativeSamplerAgent
 from app.agents.sentiment_agent import SentimentAgent
-from app.agents.strategy_card_agent import StrategyCardAgent
 from app.agents.task_understanding_agent import TaskUnderstandingAgent
 from app.agents.visualization_agent import VisualizationAgent
 from app.services.data_quality_service import DataQualityService
+from app.services.exceptions import TaskCancelledError
 from app.taxonomies import classify_stance
 
 logger = logging.getLogger(__name__)
@@ -27,10 +29,11 @@ logger = logging.getLogger(__name__)
 class CommentAnalysisGraph:
     """LangGraph-compatible Multi-Agent workflow for comment analysis."""
 
-    def __init__(self) -> None:
+    def __init__(self, progress_callback: Any | None = None, cancel_check: Any | None = None) -> None:
         self.task_understanding_agent = TaskUnderstandingAgent()
         self.platform_router_agent = PlatformRouterAgent()
         self.crawler_agent = CommentCrawlerAgent()
+        self.media_understanding_agent = MediaUnderstandingAgent()
         self.cleaning_agent = DataCleaningAgent()
         self.dedup_agent = DeduplicationAgent()
         self.sentiment_agent = SentimentAgent()
@@ -39,18 +42,21 @@ class CommentAnalysisGraph:
         self.clustering_agent = ClusteringAgent()
         self.sampler_agent = RepresentativeSamplerAgent()
         self.insight_agent = InsightGenerationAgent()
-        self.strategy_agent = StrategyCardAgent()
+        self.news_context_agent = NewsContextAgent()
         self.visualization_agent = VisualizationAgent()
         self.data_quality_service = DataQualityService()
+        self.progress_callback = progress_callback
+        self.cancel_check = cancel_check
 
     def run(self, task: Any) -> dict[str, Any]:
         """Run the workflow, preferring LangGraph when it is available."""
 
         try:
-            return self._run_langgraph(task)
-        except Exception as exc:  # pragma: no cover - depends on optional LangGraph runtime
+            import langgraph  # noqa: F401
+        except (ImportError, ModuleNotFoundError) as exc:  # pragma: no cover - optional runtime
             logger.info("LangGraph runtime unavailable, using sequential workflow: %s", exc)
             return self._run_sequential({"task": task})
+        return self._run_langgraph(task)
 
     def _run_langgraph(self, task: Any) -> dict[str, Any]:
         from langgraph.graph import END, StateGraph
@@ -59,6 +65,8 @@ class CommentAnalysisGraph:
         graph.add_node("understand", self._timed_node("understand", self._understand))
         graph.add_node("route", self._timed_node("route", self._route))
         graph.add_node("crawl", self._timed_node("crawl", self._crawl))
+        graph.add_node("media", self._timed_node("media", self._media))
+        graph.add_node("context", self._timed_node("context", self._context))
         graph.add_node("clean", self._timed_node("clean", self._clean))
         graph.add_node("dedup", self._timed_node("dedup", self._dedup))
         graph.add_node("quality", self._timed_node("quality", self._quality))
@@ -67,12 +75,13 @@ class CommentAnalysisGraph:
         graph.add_node("cluster", self._timed_node("cluster", self._cluster))
         graph.add_node("sample", self._timed_node("sample", self._sample))
         graph.add_node("insight", self._timed_node("insight", self._insight))
-        graph.add_node("strategy", self._timed_node("strategy", self._strategy))
         graph.add_node("visualize", self._timed_node("visualize", self._visualize))
         graph.set_entry_point("understand")
         graph.add_edge("understand", "route")
         graph.add_edge("route", "crawl")
-        graph.add_edge("crawl", "clean")
+        graph.add_edge("crawl", "context")
+        graph.add_edge("context", "media")
+        graph.add_edge("media", "clean")
         graph.add_edge("clean", "dedup")
         graph.add_edge("dedup", "quality")
         graph.add_edge("quality", "sentiment")
@@ -80,8 +89,7 @@ class CommentAnalysisGraph:
         graph.add_edge("attribute", "cluster")
         graph.add_edge("cluster", "sample")
         graph.add_edge("sample", "insight")
-        graph.add_edge("insight", "strategy")
-        graph.add_edge("strategy", "visualize")
+        graph.add_edge("insight", "visualize")
         graph.add_edge("visualize", END)
         compiled = graph.compile()
         return compiled.invoke({"task": task})
@@ -91,6 +99,8 @@ class CommentAnalysisGraph:
             ("understand", self._understand),
             ("route", self._route),
             ("crawl", self._crawl),
+            ("context", self._context),
+            ("media", self._media),
             ("clean", self._clean),
             ("dedup", self._dedup),
             ("quality", self._quality),
@@ -99,7 +109,6 @@ class CommentAnalysisGraph:
             ("cluster", self._cluster),
             ("sample", self._sample),
             ("insight", self._insight),
-            ("strategy", self._strategy),
             ("visualize", self._visualize),
         ]:
             state = self._run_step(name, node, state)
@@ -112,9 +121,12 @@ class CommentAnalysisGraph:
         return wrapped
 
     def _run_step(self, name: str, node: Any, state: dict[str, Any]) -> dict[str, Any]:
+        if self.cancel_check and self.cancel_check():
+            raise TaskCancelledError("任务已由用户取消")
         progress = state.setdefault("agent_progress", {})
         input_summary = self._step_summary(name, state)
         progress[name] = {"status": "running", "duration_ms": None, "error": "", "input_summary": input_summary, "output_summary": ""}
+        self._emit_progress(progress)
         started_at = time.perf_counter()
         try:
             next_state = node(state)
@@ -126,6 +138,7 @@ class CommentAnalysisGraph:
                 "input_summary": input_summary,
                 "output_summary": "",
             }
+            self._emit_progress(progress)
             raise
         progress[name] = {
             "status": "completed",
@@ -135,20 +148,40 @@ class CommentAnalysisGraph:
             "output_summary": self._step_summary(name, next_state),
         }
         next_state["agent_progress"] = progress
+        self._emit_progress(progress)
         return next_state
+
+    def _emit_progress(self, progress: dict[str, Any]) -> None:
+        if self.progress_callback:
+            self.progress_callback(progress)
 
     def _step_summary(self, name: str, state: dict[str, Any]) -> str:
         raw_count = len(state.get("raw_comments", []))
         comment_count = len(state.get("comments", []))
         dedup_count = len([item for item in state.get("comments", []) if not item.get("is_duplicate")])
         cluster_count = len(state.get("clusters", []))
-        card_count = len(state.get("strategy_cards", []))
         quality = state.get("data_quality_report") or {}
         if name in {"understand", "route"}:
             config = state.get("config", {})
-            return f"domain={config.get('domain', '-')}, platforms={len(config.get('platforms', []))}, keywords={len(config.get('keywords', []))}"
+            return (
+                f"sport={config.get('domain', '-')}, board={config.get('board', '-')}, "
+                f"threads={len(config.get('thread_urls', []))}, keywords={len(config.get('keywords', []))}"
+            )
         if name == "crawl":
             return f"raw_comments={raw_count}"
+        if name == "media":
+            media_items = state.get("context_media_items", [])
+            analyzed = [item for item in media_items if item.get("status") == "completed"]
+            included = [item for item in media_items if item.get("included_in_summary")]
+            model = next(
+                (item.get("model") for item in media_items if item.get("model")),
+                "-",
+            )
+            return f"context_media={len(media_items)}, analyzed={len(analyzed)}, included={len(included)}, model={model}"
+        if name == "context":
+            contexts = state.get("news_context_items", [])
+            fetched = len([item for item in contexts if item.get("status") != "error"])
+            return f"news_context={fetched}/{len(contexts)}"
         if name in {"clean", "dedup", "sentiment", "attribute"}:
             return f"comments={comment_count}, deduped={dedup_count}"
         if name == "quality":
@@ -159,10 +192,8 @@ class CommentAnalysisGraph:
             return f"representatives={len(state.get('representatives', []))}"
         if name == "insight":
             return "insight=generated" if state.get("insight_report") else "insight=pending"
-        if name == "strategy":
-            return f"strategy_cards={card_count}"
         if name == "visualize":
-            return f"charts={len(state.get('visualizations', {}))}, cards={card_count}"
+            return f"charts={len(state.get('visualizations', {}))}"
         return f"raw={raw_count}, comments={comment_count}"
 
     def _understand(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -178,6 +209,20 @@ class CommentAnalysisGraph:
     def _crawl(self, state: dict[str, Any]) -> dict[str, Any]:
         logger.info("CommentCrawlerAgent started")
         state["raw_comments"] = self.crawler_agent.run(state["connector_plans"])
+        return state
+
+    def _media(self, state: dict[str, Any]) -> dict[str, Any]:
+        logger.info("MediaUnderstandingAgent started")
+        state["context_media_items"] = self.media_understanding_agent.run(
+            state.get("raw_comments", []),
+            state.get("news_context_items", []),
+            state.get("config", {}),
+        )
+        return state
+
+    def _context(self, state: dict[str, Any]) -> dict[str, Any]:
+        logger.info("NewsContextAgent started")
+        state["news_context_items"] = self.news_context_agent.run(state["config"])
         return state
 
     def _clean(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -205,7 +250,7 @@ class CommentAnalysisGraph:
 
     def _attribute(self, state: dict[str, Any]) -> dict[str, Any]:
         logger.info("PositiveAttributionAgent and PainPointAgent started")
-        domain = state["config"].get("domain", "game")
+        domain = state["config"].get("domain", "basketball")
         state["comments"] = self.positive_agent.run(state["comments"], domain=domain)
         state["comments"] = self.painpoint_agent.run(state["comments"], domain=domain)
         for comment in state["comments"]:
@@ -217,7 +262,7 @@ class CommentAnalysisGraph:
 
     def _cluster(self, state: dict[str, Any]) -> dict[str, Any]:
         logger.info("ClusteringAgent started")
-        domain = state["config"].get("domain", "game")
+        domain = state["config"].get("domain", "basketball")
         state["clusters"] = self.clustering_agent.run(state["comments"], method="auto", domain=domain)
         quality = state.get("data_quality_report") or {}
         deduped = [comment for comment in state.get("comments", []) if not comment.get("is_duplicate")]
@@ -237,11 +282,6 @@ class CommentAnalysisGraph:
         state["insight_report"] = self.insight_agent.run(state)
         return state
 
-    def _strategy(self, state: dict[str, Any]) -> dict[str, Any]:
-        logger.info("StrategyCardAgent started")
-        state["strategy_cards"] = self.strategy_agent.run(state)
-        return state
-
     def _visualize(self, state: dict[str, Any]) -> dict[str, Any]:
         logger.info("VisualizationAgent started")
         state["visualizations"] = self.visualization_agent.run(state)
@@ -251,7 +291,13 @@ class CommentAnalysisGraph:
             "deduped_count": len([item for item in state.get("comments", []) if not item.get("is_duplicate")]),
             "sample_confidence_level": state.get("data_quality_report", {}).get("sample_confidence_level", "low"),
             "cluster_count": len(state.get("clusters", [])),
-            "strategy_card_count": len(state.get("strategy_cards", [])),
+            "news_context_count": len(
+                [item for item in state.get("news_context_items", []) if item.get("status") != "error"]
+            ),
+            "context_media_count": len(state.get("context_media_items", [])),
+            "context_media_included_count": len(
+                [item for item in state.get("context_media_items", []) if item.get("included_in_summary")]
+            ),
         }
         return state
 

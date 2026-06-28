@@ -1,93 +1,50 @@
 # Demo Guide
 
-The project includes three reproducible demo scenarios.
+## Browser Demo
 
-## Generate Data
+Start the API and frontend, open `http://localhost:3000`, then click **一键运行 Demo** on either sports scenario. The task enters `queued`, the status page refreshes automatically, and the report link becomes available after completion. This path uses Mock data and MockLLM by default.
 
-```bash
-python backend/scripts/seed_demo_data.py
-```
-
-Files:
-
-- `data/demo/nba_draft_comments.csv`
-- `data/demo/iaa_game_comments.csv`
-- `data/demo/news_event_comments.csv`
-
-Each file has at least 300 synthetic comments with positive, neutral, and negative examples.
-
-## Run Demos
+## Seed Data
 
 ```bash
-python backend/scripts/run_demo_task.py --scenario nba_draft
-python backend/scripts/run_demo_task.py --scenario iaa_game
-python backend/scripts/run_demo_task.py --scenario news_event
+python backend/scripts/seed_demo_data.py --scenario all
 ```
 
-The script prints:
+This creates:
 
-- task id
-- summary
-- report URL
-- Markdown export URL
+- `data/demo/nba_game_comments.csv`
+- `data/demo/world_cup_game_comments.csv`
 
-## Expected Outputs
+Each dataset contains 320 synthetic Hupu-style comments about one match.
 
-Every demo should generate:
+## Run Basketball Demo
 
-- DataQualityReport
-- sentiment distribution
-- positive and negative taxonomy labels
-- topic clusters and noise cluster
-- representative comments
-- LLM or MockLLM insight summary
-- evidence-grounded strategy cards
-- TF-IDF word clouds
-- Markdown report
+```bash
+python backend/scripts/run_demo_task.py --scenario nba_game
+```
 
-## Scenario Details
+## Run Football Demo
 
-### NBA Draft
+```bash
+python backend/scripts/run_demo_task.py --scenario world_cup_game
+```
 
-Focus:
+Both CLI demos use MockLLM unless `--real-llm` is passed. Expected output includes data quality, sentiment, sports labels, clusters, word clouds, representative comments, contextual insight, evidence-backed strategy cards, and a Markdown report.
 
-- prospect hype
-- draft-order debate
-- player templates
-- team fit
-- fan disagreement
+## Real Hupu Run
 
-### IAA Game
+Use the web Wizard and choose `虎扑公开帖子`, or submit the API payload shown in the root README. A real run requires at least one public Hupu thread URL. Add a manual match brief when no stable public news page is available.
 
-Focus:
+For CSV, JSON, JSONL, or MediaCrawler exports, choose the matching upload mode. Confirm the auto-detected comment-content field and inspect the preview before continuing.
 
-- forced ads
-- ad frequency
-- lag/heat
-- payment pressure
-- retention risk
-- reward feedback
+With SiliconFlow configured, enable source-image analysis and keep the default limit of six. The workflow ignores reply images, scores main-post/news/official images for information value, analyzes them one by one, and only includes results that pass both relevance and information-value thresholds.
 
-### News Event
+## Troubleshooting
 
-Focus:
-
-- information transparency
-- stance controversy
-- trust risk
-- emotional polarization
-- clarification needs
-
-## Common Issues
-
-### The report says sample confidence is low
-
-This is expected for small samples. Increase `--max-comments` or use the 300+ demo CSVs.
-
-### The LLM summary is mock
-
-By default, demo tasks use MockLLM to avoid consuming API credits. Add `--real-llm` to use your configured provider.
-
-### Strategy cards are fewer than expected
-
-Cards require at least two real evidence comments. The system intentionally does not generate unsupported cards.
+- **Small sample warning**: add more relevant match threads, not unrelated board pages.
+- **Hupu returns an error**: do not work around platform controls; use CSV/JSON import.
+- **News extraction is empty**: paste a concise manual background summary.
+- **LLM unavailable**: MockLLM keeps the rest of the workflow runnable.
+- **Task fails**: the status page shows the failing Agent and `error_message`; fix the input and click retry.
+- **One image fails**: the error is recorded on that source item; a single transient request is retried and the task continues.
+- **No image appears in the report**: the selected posts may contain only player photos, reaction media, or in-progress scoreboard screenshots; these are intentionally excluded.

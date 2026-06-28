@@ -3,25 +3,39 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskCreate(BaseModel):
     """Payload for creating an analysis task."""
 
-    name: str = Field(default="Demo 评论洞察任务", min_length=1)
-    domain: str = "game"
-    platforms: list[str] = Field(default_factory=lambda: ["hupu", "weibo", "zhihu"])
-    keywords: list[str] = Field(default_factory=lambda: ["广告", "卡顿", "爽"])
-    semantic_query: str = "分析用户对游戏广告体验、玩法爽感和卡顿问题的反馈"
+    name: str = Field(default="虎扑赛事评论分析", min_length=1)
+    domain: str = Field(default="basketball", pattern="^(basketball|football)$")
+    platforms: list[str] = Field(default_factory=lambda: ["hupu"])
+    board: str = "nba"
+    match_name: str = ""
+    home_team: str = ""
+    away_team: str = ""
+    match_stage: str = ""
+    match_date: str = ""
+    thread_urls: list[str] = Field(default_factory=list)
+    news_urls: list[str] = Field(default_factory=list)
+    news_context: str = ""
+    keywords: list[str] = Field(default_factory=list)
+    semantic_query: str = "分析虎扑网友对本场比赛的情绪、争议焦点和主要观点"
     time_range: dict[str, Any] = Field(default_factory=dict)
     max_comments: int = Field(default=120, ge=1, le=5000)
     similarity_threshold: float = Field(default=0.86, ge=0.0, le=1.0)
     language: str = "zh"
     sentiment_focus: str = "all"
     enable_llm: bool = True
-    data_source: str = "mock"
+    llm_mode: str = Field(default="mock", pattern="^(mock|configured)$")
+    enable_image_analysis: bool = True
+    max_image_comments: int = Field(default=6, ge=0, le=20)
+    data_source: str = Field(default="mock", pattern="^(mock|hupu_public|csv|json|mediacrawler)$")
     source_path: str | None = None
+    upload_id: str | None = None
+    field_mapping: dict[str, str] = Field(default_factory=dict)
 
 
 class TaskOut(BaseModel):
@@ -31,6 +45,15 @@ class TaskOut(BaseModel):
     name: str
     domain: str
     platforms: list[str]
+    board: str
+    match_name: str
+    home_team: str
+    away_team: str
+    match_stage: str
+    match_date: str
+    thread_urls: list[str]
+    news_urls: list[str]
+    news_context: str
     keywords: list[str]
     semantic_query: str
     time_range: dict[str, Any]
@@ -39,15 +62,25 @@ class TaskOut(BaseModel):
     language: str
     sentiment_focus: str
     enable_llm: bool
+    llm_mode: str
+    enable_image_analysis: bool
+    max_image_comments: int
     data_source: str
     source_path: str | None
+    upload_id: str | None
+    field_mapping: dict[str, str]
     status: str
     progress: dict[str, Any]
+    error_message: str
+    cancel_requested: bool
+    run_attempt: int
+    queued_at: datetime | None
+    started_at: datetime | None
+    finished_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskStatusOut(BaseModel):
@@ -56,6 +89,12 @@ class TaskStatusOut(BaseModel):
     task_id: int
     status: str
     progress: dict[str, Any]
+    error_message: str = ""
+    cancel_requested: bool = False
+    run_attempt: int = 0
+    queued_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
 
 class TaskRunResponse(BaseModel):
@@ -65,6 +104,66 @@ class TaskRunResponse(BaseModel):
     status: str
     summary: dict[str, Any]
 
+
+class UploadOut(BaseModel):
+    """Validated upload metadata and preview."""
+
+    id: str
+    original_name: str
+    source_kind: str
+    file_format: str
+    size_bytes: int
+    row_count: int
+    columns: list[str]
+    preview_rows: list[dict[str, Any]]
+    field_mapping: dict[str, str]
+    validation_errors: list[str]
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FieldMappingUpdate(BaseModel):
+    """Canonical-to-source column mapping selected in the browser."""
+
+    field_mapping: dict[str, str]
+
+
+class StrategyCardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    task_id: int
+    title: str
+    card_type: str
+    evidence_comment_ids: list[str]
+    evidence_comments: list[dict[str, Any]]
+    evidence_count: int
+    sample_size: int
+    affected_ratio: float
+    confidence: str
+    confidence_reason: str
+    suggested_actions: list[str]
+    expected_impact: str
+    ab_test_design: dict[str, Any]
+    created_at: datetime
+
+class ABTestDraftOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    task_id: int
+    strategy_card_id: int
+    name: str
+    hypothesis: str
+    control: str
+    variant: str
+    primary_metric: str
+    guardrail_metrics: list[str]
+    sample_size_note: str
+    status: str
+    created_at: datetime
 
 class CommentOut(BaseModel):
     """Comment API response after cleaning and annotation."""
@@ -83,6 +182,9 @@ class CommentOut(BaseModel):
     painpoint: str | None = None
     positive_attribution: str | None = None
     representative_reason: str | None = None
+    cluster_id: int | None = None
+    image_urls: list[str] = Field(default_factory=list)
+    image_analysis: dict[str, Any] = Field(default_factory=dict)
 
 
 class SentimentOut(BaseModel):
@@ -159,25 +261,10 @@ class InsightOut(BaseModel):
     summary: str
     positive_insights: list[str]
     negative_insights: list[str]
-    platform_differences: list[str]
+    key_viewpoints: list[str]
+    controversies: list[str]
+    news_context_summary: str
+    context_alignment: list[str]
+    fact_opinion_gaps: list[str]
     risks: list[str]
-    recommendations: list[str]
-
-
-class StrategyCardOut(BaseModel):
-    """Strategy card response."""
-
-    id: int
-    title: str
-    type: str
-    priority: str
-    problem_or_opportunity: str
-    evidence_comments: list[str]
-    evidence_count: int
-    sample_size: int
-    confidence: str
-    confidence_reason: str
-    affected_ratio: str
-    suggested_actions: list[str]
-    expected_impact: str
-    ab_test_design: dict[str, Any]
+    context_media: list[dict[str, Any]] = Field(default_factory=list)

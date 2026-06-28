@@ -1,27 +1,34 @@
 # Roadmap
 
-## MVP
+## v0.2 Focused Sports Release
 
-- FastAPI API 和 SQLAlchemy models
-- MockConnector、CSVConnector、JsonConnector
-- MediaCrawlerExportConnector，用于导入真实采集器的合规导出数据
-- 13 个 Agent 的基础可运行逻辑
-- LangGraph 工作流与顺序 fallback
-- MockLLM 洞察和策略卡片
-- Next.js 看板、任务创建、报告、策略卡片页
-- Markdown 导出
+- basketball and football task modes
+- Hupu board and match metadata
+- selected public-thread connector
+- optional public-news context
+- fact/opinion comparison
+- bounded SiliconFlow source-image understanding for data posts, reports, news, and official pages
+- explicit match-outcome contradiction guardrail
+- browser one-click Demo and persistent async task states
+- upload Wizard for CSV, JSON, and MediaCrawler exports
+- evidence-backed strategy cards with export and A/B draft actions
 
-## Phase 2
+## v0.3 Parsing Reliability
 
-- Celery 异步任务状态流
-- PostgreSQL 迁移脚本
-- Qdrant 真实向量检索
-- Playwright/httpx 公开页面采集插件
-- OpenAI、DeepSeek、Qwen Provider
+- more Hupu HTML fixtures
+- parser-version diagnostics
+- local HTML export fallback
+- better thread-level coverage metrics
 
-## Phase 3
+## v0.4 Evaluation
 
-- 实验结果回流
-- 策略胜率模型
-- 多租户权限
-- Connector 合规审计日志
+- manually labeled basketball and football benchmark
+- sentiment and taxonomy confusion reports
+- representative-comment quality review
+- news-context grounding checks
+
+## v0.5 Match Workspace
+
+- compare pre-match, live, and post-match discussion
+- compare multiple Hupu boards for the same match
+- export reproducible analysis bundles

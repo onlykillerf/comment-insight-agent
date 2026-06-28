@@ -6,7 +6,7 @@ from app.taxonomies import classify_label
 class PositiveAttributionAgent:
     """Analyze why positive comments are positive using domain taxonomy."""
 
-    def run(self, comments: list[dict], domain: str = "game") -> list[dict]:
+    def run(self, comments: list[dict], domain: str = "basketball") -> list[dict]:
         """Attach positive attribution for positive comments."""
 
         for comment in comments:

@@ -11,7 +11,7 @@ from app.taxonomies import classify_stance, get_taxonomy
 class ClusteringAgent:
     """Cluster comments with HDBSCAN first, then KMeans or rule fallback."""
 
-    def run(self, comments: list[dict], method: str = "auto", domain: str = "game") -> list[dict[str, Any]]:
+    def run(self, comments: list[dict], method: str = "auto", domain: str = "basketball") -> list[dict[str, Any]]:
         """Return cluster summaries and assign cluster_id on comments."""
 
         non_duplicate = [comment for comment in comments if not comment.get("is_duplicate")]
@@ -164,11 +164,14 @@ class ClusteringAgent:
             return base_name
         top_sentiment = sentiment_distribution.most_common(1)[0][0] if sentiment_distribution else "neutral"
         keyword_part = "、".join(keywords[:3]) if keywords else "无明显关键词"
-        evidence_hint = representatives[0][:18] if representatives else ""
-        suffix = f"｜{keyword_part}｜{top_sentiment}"
-        if evidence_hint:
-            suffix += f"｜例：{evidence_hint}"
-        return f"{base_name}{suffix}"[:160]
+        sentiment_name = {
+            "strong_positive": "强正向",
+            "positive": "正向",
+            "neutral": "中性",
+            "negative": "负向",
+            "strong_negative": "强负向",
+        }.get(top_sentiment, top_sentiment)
+        return f"{base_name}｜{keyword_part}｜{sentiment_name}"[:80]
 
     def _top_keywords(self, comments: list[dict], domain: str) -> list[str]:
         counter: Counter[str] = Counter()

@@ -1,83 +1,63 @@
 # Evaluation
 
-This project should be evaluated as a decision-support system, not only as a sentiment classifier.
+## Collection Quality
+
+- selected threads belong to the intended match and board
+- parser conversion accuracy for content, lights, replies, and time
+- no duplicate floors across highlighted and paginated replies
+- no usernames or private profile fields in persisted output
 
 ## Data Quality
 
-Metrics:
+- clean ratio
+- duplicate ratio
+- noise ratio
+- sample size and confidence level
+- cross-thread coverage for the same match
 
-- `clean_ratio = clean_count / raw_count`
-- `duplicate_ratio`
-- `noise_ratio`
-- language distribution
-- sample confidence level
+## Sentiment and Sports Labels
 
-Checks:
+- manual spot check of at least 30 comments per sport
+- positive/neutral/negative distribution sanity check
+- basketball and football label precision
+- referee-questioning and humor stance confusion checks
 
-- Are low-quality comments filtered?
-- Are duplicates marked?
-- Is the sample large enough for the report claims?
-- Is the warning visible when `dedup_count < 100`?
-
-## Sentiment Quality
-
-Methods:
-
-- Manual spot check 30 comments per scenario.
-- Label distribution sanity check.
-- Compare strong sentiment comments with representative comments.
-- Track confusion between jokes, sarcasm, and true negative feedback.
-
-## Clustering Quality
-
-Metrics:
+## Clustering
 
 - cluster coherence
-- representative comment quality
+- representative-comment quality
 - noise ratio
-- dominant-cluster ratio
+- whether one large controversy hides smaller tactical themes
 
-Checks:
+## News Context Grounding
 
-- Do top keywords describe the cluster?
-- Are noise comments truly low signal?
-- Does one huge cluster hide smaller themes?
+- article title/body extraction accuracy
+- news facts clearly separated from sampled opinions
+- context alignment supported by provided text
+- fact/opinion gaps stated when evidence is incomplete
+- no claims based on failed news fetches
+- explicit winner/loser contradictions are removed by the outcome guardrail
 
-## Strategy Card Quality
+## Source Image Quality
 
-Metrics:
+- reply images are absent from normalized comments and provider requests
+- each image remains traceable to its original post, news page, or official URL
+- repeated image URLs do not trigger repeated multimodal calls
+- player portraits, reaction media, and in-progress scoreboard screenshots are excluded
+- visual evidence never enters comment clusters or word clouds
+- OCR and visual summaries are manually spot-checked against the image
+- per-source-image errors do not fail the complete task
 
-- evidence coverage
-- affected ratio correctness
-- confidence calibration
-- actionability
-- hallucination check
+## Engineering
 
-Checks:
-
-- Does every card have real evidence comments?
-- Is `affected_ratio` computed from real counts?
-- Is confidence downgraded for small samples?
-- Are suggested actions domain-specific?
-- Did the LLM invent evidence? It should not.
-
-## Engineering Quality
-
-Checks:
-
-- One-command demo works.
-- Backend tests pass.
-- Frontend build passes.
-- API schemas match frontend types.
-- README commands are accurate.
-- Demo datasets are reproducible.
-- CI runs on pull requests.
-
-## Frontend Usability
-
-Checks:
-
-- Can a new user understand the project in one minute?
-- Can they run a demo in five minutes?
-- Can they see evidence, confidence, and next actions in ten minutes?
-- Are warnings visible without digging?
+- offline demo runs without API keys
+- Hupu parser tests use fixtures, not live network
+- backend tests and frontend production build pass
+- API and frontend types stay aligned
+- configured source-image cap is respected in real runs
+- browser demo reaches a completed report without a CLI script
+- upload preview and mapping reject missing comment content
+- workflow exceptions persist `failed` and `error_message`
+- task status polling exposes non-zero Agent duration and summaries
+- label, cluster, and keyword clicks filter traceable comments
+- strategy-card evidence IDs exist in the task sample and ratios match real counts

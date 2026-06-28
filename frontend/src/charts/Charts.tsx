@@ -22,7 +22,7 @@ export function SentimentPie({ distribution }: { distribution: Record<string, nu
   );
 }
 
-export function ClassificationBar({ rows, title }: { rows: ClassificationRow[]; title: string }) {
+export function ClassificationBar({ rows, title, onSelect }: { rows: ClassificationRow[]; title: string; onSelect?: (category: string) => void }) {
   return (
     <ReactECharts
       style={{ height: 300 }}
@@ -34,17 +34,18 @@ export function ClassificationBar({ rows, title }: { rows: ClassificationRow[]; 
         yAxis: { type: "category", data: rows.map((row) => row.category).reverse() },
         series: [{ type: "bar", data: rows.map((row) => row.count).reverse(), color: "#1f7a8c" }]
       }}
+      onEvents={{ click: (params: { name: string }) => onSelect?.(params.name) }}
     />
   );
 }
 
-export function ClusterBubble({ clusters }: { clusters: Cluster[] }) {
+export function ClusterBubble({ clusters, onSelect }: { clusters: Cluster[]; onSelect?: (clusterId: number) => void }) {
   return (
     <ReactECharts
       style={{ height: 320 }}
       option={{
         tooltip: {
-          formatter: (params: { data: [number, number, number, string] }) => `${params.data[3]}：${params.data[2]} 条`
+          formatter: (params: { data: [number, number, number, string, number] }) => `${params.data[3]}：${params.data[2]} 条`
         },
         xAxis: { type: "value", show: false },
         yAxis: { type: "value", show: false },
@@ -52,7 +53,7 @@ export function ClusterBubble({ clusters }: { clusters: Cluster[] }) {
           {
             type: "scatter",
             symbolSize: (data: [number, number, number]) => Math.min(72, Math.max(24, Math.sqrt(data[2]) * 18)),
-            data: clusters.map((cluster, index) => [index + 1, cluster.cluster_ratio, cluster.cluster_size, cluster.cluster_name]),
+            data: clusters.map((cluster, index) => [index + 1, cluster.cluster_ratio, cluster.cluster_size, cluster.cluster_name, cluster.cluster_id]),
             itemStyle: {
               color: (params: { dataIndex: number }) => (clusters[params.dataIndex]?.is_noise ? "#94a3b8" : "#c75c2f")
             },
@@ -60,16 +61,17 @@ export function ClusterBubble({ clusters }: { clusters: Cluster[] }) {
               show: true,
               width: 120,
               overflow: "truncate",
-              formatter: (params: { data: [number, number, number, string] }) => params.data[3]
+              formatter: (params: { data: [number, number, number, string, number] }) => params.data[3]
             }
           }
         ]
       }}
+      onEvents={{ click: (params: { data: [number, number, number, string, number] }) => onSelect?.(params.data[4]) }}
     />
   );
 }
 
-export function WordCloudPanel({ words }: { words: WordCloudItem[] }) {
+export function WordCloudPanel({ words, onSelect }: { words: WordCloudItem[]; onSelect?: (word: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const list = useMemo(() => buildWordList(words), [words]);
@@ -125,7 +127,8 @@ export function WordCloudPanel({ words }: { words: WordCloudItem[] }) {
         drawOutOfBound: false,
         shrinkToFit: true,
         abortThreshold: 1500,
-        minSize: 8
+        minSize: 8,
+        click: (item: [string, number] | undefined) => item && onSelect?.(item[0])
       });
     }
 
@@ -139,7 +142,7 @@ export function WordCloudPanel({ words }: { words: WordCloudItem[] }) {
       cancelled = true;
       observer.disconnect();
     };
-  }, [list]);
+  }, [list, onSelect]);
 
   return (
     <div ref={wrapperRef} className="min-h-[240px] w-full overflow-hidden rounded-md border border-line bg-white">

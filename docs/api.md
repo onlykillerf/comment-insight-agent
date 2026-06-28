@@ -1,36 +1,40 @@
 # API
 
-基础路径：`http://localhost:8000`
+Base URL: `http://localhost:8000`
 
-| Method | Path | Description |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/api/tasks` | 创建分析任务 |
-| GET | `/api/tasks` | 获取任务列表 |
-| GET | `/api/tasks/{task_id}` | 获取任务详情 |
-| POST | `/api/tasks/{task_id}/run` | 启动任务分析流程 |
-| GET | `/api/tasks/{task_id}/status` | 获取任务执行状态 |
-| GET | `/api/tasks/{task_id}/comments` | 获取评论列表 |
-| GET | `/api/tasks/{task_id}/clusters` | 获取聚类结果 |
-| GET | `/api/tasks/{task_id}/sentiment` | 获取情绪分析结果 |
-| GET | `/api/tasks/{task_id}/painpoints` | 获取痛点分析结果 |
-| GET | `/api/tasks/{task_id}/positive-attributions` | 获取好评归因结果 |
-| GET | `/api/tasks/{task_id}/insights` | 获取洞察报告 |
-| GET | `/api/tasks/{task_id}/strategy-cards` | 获取策略卡片 |
-| GET | `/api/tasks/{task_id}/report/markdown` | 导出 Markdown 报告 |
+| POST | `/api/tasks` | Create a match analysis task. |
+| GET | `/api/tasks` | List tasks. |
+| GET | `/api/tasks/{id}` | Read match configuration and status. |
+| POST | `/api/demos/{scenario}` | Create and queue a browser demo. |
+| POST | `/api/tasks/{id}/run` | Queue the workflow and return `202`. |
+| POST | `/api/tasks/{id}/cancel` | Request cooperative cancellation. |
+| POST | `/api/tasks/{id}/retry` | Requeue a failed or cancelled task. |
+| GET | `/api/tasks/{id}/status` | Read per-agent progress. |
+| POST | `/api/uploads` | Upload and preview CSV/JSON/MediaCrawler data. |
+| PATCH | `/api/uploads/{id}/mapping` | Validate canonical field mapping. |
+| GET | `/api/tasks/{id}/quality` | Read sample quality metrics. |
+| GET | `/api/tasks/{id}/comments` | Read annotated comments. |
+| GET | `/api/tasks/{id}/sentiment` | Read sentiment distribution. |
+| GET | `/api/tasks/{id}/clusters` | Read topic clusters. |
+| GET | `/api/tasks/{id}/wordclouds` | Read weighted word-cloud data. |
+| GET | `/api/tasks/{id}/insights` | Read contextual match insights. |
+| GET | `/api/tasks/{id}/strategy-cards` | Read evidence-backed cards. |
+| GET | `/api/strategy-cards/{id}/export` | Download one card as JSON. |
+| POST | `/api/strategy-cards/{id}/ab-test-drafts` | Persist an A/B draft. |
+| GET | `/api/tasks/{id}/report/markdown` | Export the report. |
+| GET | `/api/media/proxy?url=...` | Display allowlisted public Hupu CDN images with hotlink-safe headers. |
 
-## MediaCrawler Export Payload
+`POST /api/tasks` accepts match fields documented in the root README. `domain` must be `basketball` or `football`; the backend always normalizes `platforms` to `["hupu"]`.
 
-```json
-{
-  "name": "MediaCrawler 导出评论分析",
-  "domain": "game",
-  "platforms": ["weibo"],
-  "keywords": ["广告"],
-  "semantic_query": "分析广告体验相关评论",
-  "max_comments": 200,
-  "data_source": "mediacrawler",
-  "source_path": "data/mediacrawler_weibo_note_comment.jsonl"
-}
-```
+Task states are `created`, `queued`, `running`, `completed`, `failed`, and `cancelled`. Every uncaught workflow error is persisted in `error_message`; progress entries contain status, elapsed milliseconds, input/output summaries, and the current Agent error.
 
-`source_path` 可以指向 MediaCrawler 导出的单个 CSV/JSON/JSONL/SQLite 文件，也可以指向导出目录。路径支持绝对路径，也支持相对项目根目录的路径。
+For uploads, send multipart fields `file` and `source_kind`. Bind the returned `upload_id` when creating a task. Browser clients never need the generated `stored_path`.
+
+Image controls:
+
+- `enable_image_analysis`: enable structured analysis of selected source-context images.
+- `max_image_comments`: total main-post/news/official image budget sent to the vision model, from 0 to 20. The legacy field name is retained for API compatibility.
+- `GET /api/tasks/{id}/insights` returns `context_media` with source URL, authority level, selection reasons, OCR, data points, confidence, and inclusion status.
+- Reply images are never returned as evidence or sent to the vision model.

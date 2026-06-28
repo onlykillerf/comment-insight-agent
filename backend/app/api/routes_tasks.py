@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import CleanComment, Task
+from app.models import CleanComment, Task, UploadedDataset
 from app.schemas import (
     ClusterOut,
     CommentOut,
@@ -15,14 +15,13 @@ from app.schemas import (
     PainPointOut,
     PositiveAttributionOut,
     SentimentOut,
-    StrategyCardOut,
     TaskCreate,
     TaskOut,
     TaskRunResponse,
     TaskStatusOut,
     WordCloudsOut,
 )
-from app.services.persistence import run_and_store_task
+from app.services.task_execution_service import task_execution_service
 from app.services.visualization_service import VisualizationService
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -32,10 +31,34 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
     """Create an analysis task."""
 
+    source_path = payload.source_path
+    data_source = payload.data_source
+    field_mapping = payload.field_mapping
+    if payload.upload_id:
+        upload = db.get(UploadedDataset, payload.upload_id)
+        if not upload:
+            raise HTTPException(status_code=404, detail="上传文件不存在")
+        if upload.status != "ready":
+            raise HTTPException(status_code=422, detail="请先完成上传文件的字段映射")
+        source_path = upload.stored_path
+        data_source = upload.source_kind
+        field_mapping = upload.field_mapping
+    elif payload.data_source in {"csv", "json", "mediacrawler"} and not payload.source_path:
+        raise HTTPException(status_code=422, detail="请先在浏览器上传数据文件")
+
     task = Task(
         name=payload.name,
         domain=payload.domain,
-        platforms=payload.platforms,
+        platforms=["hupu"],
+        board=payload.board,
+        match_name=payload.match_name,
+        home_team=payload.home_team,
+        away_team=payload.away_team,
+        match_stage=payload.match_stage,
+        match_date=payload.match_date,
+        thread_urls=payload.thread_urls,
+        news_urls=payload.news_urls,
+        news_context=payload.news_context,
         keywords=payload.keywords,
         semantic_query=payload.semantic_query,
         time_range=payload.time_range,
@@ -44,10 +67,16 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
         language=payload.language,
         sentiment_focus=payload.sentiment_focus,
         enable_llm=payload.enable_llm,
-        data_source=payload.data_source,
-        source_path=payload.source_path,
+        llm_mode=payload.llm_mode,
+        enable_image_analysis=payload.enable_image_analysis,
+        max_image_comments=payload.max_image_comments,
+        data_source=data_source,
+        source_path=source_path,
+        upload_id=payload.upload_id,
+        field_mapping=field_mapping,
         status="created",
         progress={},
+        error_message="",
     )
     db.add(task)
     db.commit()
@@ -57,9 +86,9 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
 
 @router.get("", response_model=list[TaskOut])
 def list_tasks(db: Session = Depends(get_db)) -> list[Task]:
-    """Return all tasks, newest first."""
+    """Return focused basketball and football tasks, newest first."""
 
-    return db.query(Task).order_by(Task.created_at.desc()).all()
+    return db.query(Task).filter(Task.domain.in_(["basketball", "football"])).order_by(Task.created_at.desc()).all()
 
 
 @router.get("/{task_id}", response_model=TaskOut)
@@ -69,13 +98,40 @@ def get_task(task_id: int, db: Session = Depends(get_db)) -> Task:
     return _get_task_or_404(db, task_id)
 
 
-@router.post("/{task_id}/run", response_model=TaskRunResponse)
-def run_task(task_id: int, db: Session = Depends(get_db)) -> TaskRunResponse:
-    """Run the full analysis workflow synchronously for the MVP."""
+@router.post("/{task_id}/run", response_model=TaskRunResponse, status_code=202)
+def run_task(task_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> TaskRunResponse:
+    """Queue the analysis and return immediately."""
 
     task = _get_task_or_404(db, task_id)
-    summary = run_and_store_task(db, task)
-    return TaskRunResponse(task_id=task.id, status=task.status, summary=summary)
+    try:
+        state = task_execution_service.queue(task.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(task_execution_service.start, task.id)
+    return TaskRunResponse(task_id=task.id, status=state["status"], summary={})
+
+
+@router.post("/{task_id}/cancel", response_model=TaskRunResponse, status_code=202)
+def cancel_task(task_id: int, db: Session = Depends(get_db)) -> TaskRunResponse:
+    _get_task_or_404(db, task_id)
+    if not task_execution_service.cancel(task_id):
+        raise HTTPException(status_code=409, detail="只有排队中或运行中的任务可以取消")
+    db.expire_all()
+    task = _get_task_or_404(db, task_id)
+    return TaskRunResponse(task_id=task_id, status=task.status, summary={"cancel_requested": True})
+
+
+@router.post("/{task_id}/retry", response_model=TaskRunResponse, status_code=202)
+def retry_task(task_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> TaskRunResponse:
+    task = _get_task_or_404(db, task_id)
+    if task.status not in {"failed", "cancelled"}:
+        raise HTTPException(status_code=409, detail="只有失败或已取消的任务可以重试")
+    try:
+        state = task_execution_service.queue(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(task_execution_service.start, task_id)
+    return TaskRunResponse(task_id=task_id, status=state["status"], summary={})
 
 
 @router.get("/{task_id}/status", response_model=TaskStatusOut)
@@ -83,7 +139,17 @@ def get_status(task_id: int, db: Session = Depends(get_db)) -> TaskStatusOut:
     """Return task status."""
 
     task = _get_task_or_404(db, task_id)
-    return TaskStatusOut(task_id=task.id, status=task.status, progress=task.progress or {})
+    return TaskStatusOut(
+        task_id=task.id,
+        status=task.status,
+        progress=task.progress or {},
+        error_message=task.error_message or "",
+        cancel_requested=task.cancel_requested,
+        run_attempt=task.run_attempt,
+        queued_at=task.queued_at,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
+    )
 
 
 @router.get("/{task_id}/quality", response_model=DataQualityOut)
@@ -132,6 +198,9 @@ def get_comments(task_id: int, db: Session = Depends(get_db)) -> list[CommentOut
                     comment.positive_attribution.category if comment.positive_attribution else None
                 ),
                 representative_reason=representative_reasons.get(comment.id),
+                cluster_id=comment.cluster_id,
+                image_urls=comment.raw_comment.image_urls or [],
+                image_analysis=comment.raw_comment.image_analysis or {},
             )
         )
     return rows
@@ -217,36 +286,14 @@ def get_insights(task_id: int, db: Session = Depends(get_db)) -> InsightOut:
         summary=report.summary,
         positive_insights=report.positive_insights,
         negative_insights=report.negative_insights,
-        platform_differences=report.platform_differences,
+        key_viewpoints=report.key_viewpoints,
+        controversies=report.controversies,
+        news_context_summary=report.news_context_summary,
+        context_alignment=report.context_alignment,
+        fact_opinion_gaps=report.fact_opinion_gaps,
         risks=report.risks,
-        recommendations=report.recommendations,
+        context_media=report.context_media or [],
     )
-
-
-@router.get("/{task_id}/strategy-cards", response_model=list[StrategyCardOut])
-def get_strategy_cards(task_id: int, db: Session = Depends(get_db)) -> list[StrategyCardOut]:
-    """Return generated strategy cards."""
-
-    task = _get_task_or_404(db, task_id)
-    return [
-        StrategyCardOut(
-            id=card.id,
-            title=card.title,
-            type=card.type,
-            priority=card.priority,
-            problem_or_opportunity=card.problem_or_opportunity,
-            evidence_comments=card.evidence_comments,
-            evidence_count=card.evidence_count,
-            sample_size=card.sample_size,
-            confidence=card.confidence,
-            confidence_reason=card.confidence_reason,
-            affected_ratio=card.affected_ratio,
-            suggested_actions=card.suggested_actions,
-            expected_impact=card.expected_impact,
-            ab_test_design=card.ab_test_design,
-        )
-        for card in task.strategy_cards
-    ]
 
 
 def _get_task_or_404(db: Session, task_id: int) -> Task:
