@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import CleanComment, Task
+from app.models import CleanComment, Task, UploadedDataset
 from app.schemas import (
     ClusterOut,
     CommentOut,
@@ -21,7 +21,7 @@ from app.schemas import (
     TaskStatusOut,
     WordCloudsOut,
 )
-from app.services.persistence import run_and_store_task
+from app.services.task_execution_service import task_execution_service
 from app.services.visualization_service import VisualizationService
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -30,6 +30,21 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 @router.post("", response_model=TaskOut)
 def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
     """Create an analysis task."""
+
+    source_path = payload.source_path
+    data_source = payload.data_source
+    field_mapping = payload.field_mapping
+    if payload.upload_id:
+        upload = db.get(UploadedDataset, payload.upload_id)
+        if not upload:
+            raise HTTPException(status_code=404, detail="上传文件不存在")
+        if upload.status != "ready":
+            raise HTTPException(status_code=422, detail="请先完成上传文件的字段映射")
+        source_path = upload.stored_path
+        data_source = upload.source_kind
+        field_mapping = upload.field_mapping
+    elif payload.data_source in {"csv", "json", "mediacrawler"} and not payload.source_path:
+        raise HTTPException(status_code=422, detail="请先在浏览器上传数据文件")
 
     task = Task(
         name=payload.name,
@@ -52,12 +67,16 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)) -> Task:
         language=payload.language,
         sentiment_focus=payload.sentiment_focus,
         enable_llm=payload.enable_llm,
+        llm_mode=payload.llm_mode,
         enable_image_analysis=payload.enable_image_analysis,
         max_image_comments=payload.max_image_comments,
-        data_source=payload.data_source,
-        source_path=payload.source_path,
+        data_source=data_source,
+        source_path=source_path,
+        upload_id=payload.upload_id,
+        field_mapping=field_mapping,
         status="created",
         progress={},
+        error_message="",
     )
     db.add(task)
     db.commit()
@@ -79,13 +98,40 @@ def get_task(task_id: int, db: Session = Depends(get_db)) -> Task:
     return _get_task_or_404(db, task_id)
 
 
-@router.post("/{task_id}/run", response_model=TaskRunResponse)
-def run_task(task_id: int, db: Session = Depends(get_db)) -> TaskRunResponse:
-    """Run the full analysis workflow synchronously for the MVP."""
+@router.post("/{task_id}/run", response_model=TaskRunResponse, status_code=202)
+def run_task(task_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> TaskRunResponse:
+    """Queue the analysis and return immediately."""
 
     task = _get_task_or_404(db, task_id)
-    summary = run_and_store_task(db, task)
-    return TaskRunResponse(task_id=task.id, status=task.status, summary=summary)
+    try:
+        state = task_execution_service.queue(task.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(task_execution_service.start, task.id)
+    return TaskRunResponse(task_id=task.id, status=state["status"], summary={})
+
+
+@router.post("/{task_id}/cancel", response_model=TaskRunResponse, status_code=202)
+def cancel_task(task_id: int, db: Session = Depends(get_db)) -> TaskRunResponse:
+    _get_task_or_404(db, task_id)
+    if not task_execution_service.cancel(task_id):
+        raise HTTPException(status_code=409, detail="只有排队中或运行中的任务可以取消")
+    db.expire_all()
+    task = _get_task_or_404(db, task_id)
+    return TaskRunResponse(task_id=task_id, status=task.status, summary={"cancel_requested": True})
+
+
+@router.post("/{task_id}/retry", response_model=TaskRunResponse, status_code=202)
+def retry_task(task_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> TaskRunResponse:
+    task = _get_task_or_404(db, task_id)
+    if task.status not in {"failed", "cancelled"}:
+        raise HTTPException(status_code=409, detail="只有失败或已取消的任务可以重试")
+    try:
+        state = task_execution_service.queue(task_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    background_tasks.add_task(task_execution_service.start, task_id)
+    return TaskRunResponse(task_id=task_id, status=state["status"], summary={})
 
 
 @router.get("/{task_id}/status", response_model=TaskStatusOut)
@@ -93,7 +139,17 @@ def get_status(task_id: int, db: Session = Depends(get_db)) -> TaskStatusOut:
     """Return task status."""
 
     task = _get_task_or_404(db, task_id)
-    return TaskStatusOut(task_id=task.id, status=task.status, progress=task.progress or {})
+    return TaskStatusOut(
+        task_id=task.id,
+        status=task.status,
+        progress=task.progress or {},
+        error_message=task.error_message or "",
+        cancel_requested=task.cancel_requested,
+        run_attempt=task.run_attempt,
+        queued_at=task.queued_at,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
+    )
 
 
 @router.get("/{task_id}/quality", response_model=DataQualityOut)
@@ -142,6 +198,7 @@ def get_comments(task_id: int, db: Session = Depends(get_db)) -> list[CommentOut
                     comment.positive_attribution.category if comment.positive_attribution else None
                 ),
                 representative_reason=representative_reasons.get(comment.id),
+                cluster_id=comment.cluster_id,
                 image_urls=comment.raw_comment.image_urls or [],
                 image_analysis=comment.raw_comment.image_analysis or {},
             )

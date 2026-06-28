@@ -5,8 +5,9 @@
 | Connector | Use |
 | --- | --- |
 | `HupuPublicConnector` | Read user-selected public Hupu thread pages and pagination. |
-| `CSVConnector` | Import a normalized local CSV export. |
+| `CSVConnector` | Import a normalized browser-uploaded CSV export. |
 | `JsonConnector` | Import JSON or JSONL comments. |
+| `MediaCrawlerExportConnector` | Normalize a user-provided MediaCrawler CSV/JSON export. |
 | `MockConnector` | Run a deterministic basketball/football demo offline. |
 
 ## Hupu Public Connector
@@ -25,7 +26,11 @@ Collected fields:
 
 The connector does not search Hupu automatically. Selecting the relevant board, match, and threads remains an explicit user decision, which keeps the sample interpretable. Reply images are discarded. Main-post images are scored for official/data signals, URL-deduplicated, and analyzed one by one within the task image budget.
 
-## Local Import Schema
+## Browser Upload and Mapping
+
+The Wizard uploads files to `POST /api/uploads`, previews rows, and stores a canonical-to-source mapping. Tasks reference `upload_id`; users do not type server filesystem paths. The content field is required, while IDs, likes, timestamps, and URLs can be auto-detected or mapped manually.
+
+## Import Schema
 
 CSV/JSON rows should contain:
 

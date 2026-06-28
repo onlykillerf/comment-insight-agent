@@ -1,15 +1,19 @@
 from app.schemas.task import (
+    ABTestDraftOut,
     ClusterOut,
     CommentOut,
     DataQualityOut,
+    FieldMappingUpdate,
     InsightOut,
     PainPointOut,
     PositiveAttributionOut,
     SentimentOut,
+    StrategyCardOut,
     TaskCreate,
     TaskOut,
     TaskRunResponse,
     TaskStatusOut,
+    UploadOut,
     WordCloudsOut,
 )
 
@@ -26,4 +30,8 @@ __all__ = [
     "PositiveAttributionOut",
     "InsightOut",
     "WordCloudsOut",
+    "UploadOut",
+    "FieldMappingUpdate",
+    "StrategyCardOut",
+    "ABTestDraftOut",
 ]

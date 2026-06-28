@@ -3,7 +3,7 @@
 | Agent | Input | Output | Responsibility |
 | --- | --- | --- | --- |
 | `TaskUnderstandingAgent` | task model | normalized match config | Restrict sport to basketball/football and platform to Hupu. |
-| `PlatformRouterAgent` | config | connector plans | Choose Mock, Hupu public page, CSV, or JSON. |
+| `PlatformRouterAgent` | config | connector plans | Choose Mock, Hupu public page, uploaded CSV/JSON, or MediaCrawler export. |
 | `CommentCrawlerAgent` | connector plans | RawComment dictionaries | Collect or import bounded comments. |
 | `MediaUnderstandingAgent` | main-post metadata + news context + task limit | source-level visual evidence | Select data/official images, ignore reply media, and analyze each image with `Qwen/Qwen3.5-4B`. |
 | `NewsContextAgent` | manual brief + public URLs | bounded context items | Extract optional factual background without failing the comment run. |
@@ -26,6 +26,8 @@ understand → route → crawl → context → media → clean → dedup → qua
 
 Each step records status, duration, input summary, output summary, and error details. If LangGraph is unavailable, the same nodes run sequentially.
 
+`POST /run` queues work and returns immediately. The frontend polls persistent task state while queued or running. Cancellation is cooperative between Agents; any uncaught exception updates the task to `failed` with a bounded error message.
+
 ## Failure Behavior
 
 - Hupu parser failure: task fails with a clear public-page parsing error; use CSV/JSON fallback.
@@ -35,3 +37,4 @@ Each step records status, duration, input summary, output summary, and error det
 - Reply image: never collected or sent to the vision provider.
 - LLM failure: returns a provider error insight while deterministic analysis remains available.
 - Small samples: confidence is lowered and the report shows a warning.
+- Process restart: stale queued/running tasks are marked failed and can be retried.

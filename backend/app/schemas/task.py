@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskCreate(BaseModel):
@@ -29,10 +29,13 @@ class TaskCreate(BaseModel):
     language: str = "zh"
     sentiment_focus: str = "all"
     enable_llm: bool = True
+    llm_mode: str = Field(default="mock", pattern="^(mock|configured)$")
     enable_image_analysis: bool = True
     max_image_comments: int = Field(default=6, ge=0, le=20)
-    data_source: str = Field(default="mock", pattern="^(mock|hupu_public|csv|json)$")
+    data_source: str = Field(default="mock", pattern="^(mock|hupu_public|csv|json|mediacrawler)$")
     source_path: str | None = None
+    upload_id: str | None = None
+    field_mapping: dict[str, str] = Field(default_factory=dict)
 
 
 class TaskOut(BaseModel):
@@ -59,17 +62,25 @@ class TaskOut(BaseModel):
     language: str
     sentiment_focus: str
     enable_llm: bool
+    llm_mode: str
     enable_image_analysis: bool
     max_image_comments: int
     data_source: str
     source_path: str | None
+    upload_id: str | None
+    field_mapping: dict[str, str]
     status: str
     progress: dict[str, Any]
+    error_message: str
+    cancel_requested: bool
+    run_attempt: int
+    queued_at: datetime | None
+    started_at: datetime | None
+    finished_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskStatusOut(BaseModel):
@@ -78,6 +89,12 @@ class TaskStatusOut(BaseModel):
     task_id: int
     status: str
     progress: dict[str, Any]
+    error_message: str = ""
+    cancel_requested: bool = False
+    run_attempt: int = 0
+    queued_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
 
 class TaskRunResponse(BaseModel):
@@ -87,6 +104,66 @@ class TaskRunResponse(BaseModel):
     status: str
     summary: dict[str, Any]
 
+
+class UploadOut(BaseModel):
+    """Validated upload metadata and preview."""
+
+    id: str
+    original_name: str
+    source_kind: str
+    file_format: str
+    size_bytes: int
+    row_count: int
+    columns: list[str]
+    preview_rows: list[dict[str, Any]]
+    field_mapping: dict[str, str]
+    validation_errors: list[str]
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FieldMappingUpdate(BaseModel):
+    """Canonical-to-source column mapping selected in the browser."""
+
+    field_mapping: dict[str, str]
+
+
+class StrategyCardOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    task_id: int
+    title: str
+    card_type: str
+    evidence_comment_ids: list[str]
+    evidence_comments: list[dict[str, Any]]
+    evidence_count: int
+    sample_size: int
+    affected_ratio: float
+    confidence: str
+    confidence_reason: str
+    suggested_actions: list[str]
+    expected_impact: str
+    ab_test_design: dict[str, Any]
+    created_at: datetime
+
+class ABTestDraftOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    task_id: int
+    strategy_card_id: int
+    name: str
+    hypothesis: str
+    control: str
+    variant: str
+    primary_metric: str
+    guardrail_metrics: list[str]
+    sample_size_note: str
+    status: str
+    created_at: datetime
 
 class CommentOut(BaseModel):
     """Comment API response after cleaning and annotation."""
@@ -105,6 +182,7 @@ class CommentOut(BaseModel):
     painpoint: str | None = None
     positive_attribution: str | None = None
     representative_reason: str | None = None
+    cluster_id: int | None = None
     image_urls: list[str] = Field(default_factory=list)
     image_analysis: dict[str, Any] = Field(default_factory=dict)
 

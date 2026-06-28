@@ -11,6 +11,9 @@ comment_insight.db
 *.sqlite
 *.sqlite3
 node_modules/
+.playwright/
+frontend/playwright-report/
+frontend/test-results/
 .next/
 *.tsbuildinfo
 dist/
@@ -21,6 +24,7 @@ frontend/.env.local
 release_logs/
 validation_logs/
 data/mediacrawler_outputs/
+data/uploads/
 data/*snapshot*.json
 data/*visible*.jsonl
 data/*visible*.json

@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     qwen_api_key: str | None = None
     siliconflow_api_key: str | None = None
     siliconflow_vision_model: str = "Qwen/Qwen3.5-4B"
+    upload_dir: str = "data/uploads"
+    max_upload_mb: int = 10
+    task_worker_count: int = 2
+    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     model_config = SettingsConfigDict(
         env_file=(".env", PROJECT_ROOT / ".env"),

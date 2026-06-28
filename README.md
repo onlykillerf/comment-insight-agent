@@ -1,6 +1,6 @@
 # Hupu Sports Comment Insight Agent
 
-Turn public Hupu match discussions, informative source images, and news context into sentiment trends, topic clusters, and grounded match insights.
+Turn public Hupu match discussions, informative source images, and news context into sentiment trends, topic clusters, grounded insights, and evidence-backed action cards.
 
 一个聚焦虎扑篮球与足球板块的赛事评论分析 Multi-Agent 项目：选择板块和具体比赛，导入公开帖子评论，并结合相关新闻背景分析球迷情绪、争议焦点与主要观点。
 
@@ -53,8 +53,13 @@ Repository: https://github.com/onlykillerf/comment-insight-agent
 - **Representative comments**: comments remain traceable to their original public thread.
 - **Mock-first**: the full workflow runs without a real platform request or LLM key.
 - **MockLLM fallback**: real OpenAI-compatible providers remain optional.
+- **Browser-first workflow**: run a complete demo from the dashboard without copying a command.
+- **Persistent async status**: queued/running/completed/failed/cancelled states with per-Agent timing and errors.
+- **Upload wizard**: upload CSV, JSON, JSONL, or MediaCrawler exports, preview rows, and map fields in the browser.
+- **Interactive report**: drill from labels, clusters, and keywords into their supporting comments.
+- **Evidence-backed actions**: strategy cards expose actual counts, traceable comments, confidence reasons, JSON export, and optional A/B test drafts.
 
-This project does **not** generate strategy cards or A/B testing ideas.
+LLM output is limited to summarization. Evidence comments, affected ratios, confidence inputs, and strategy-card eligibility are computed from persisted structured analysis.
 
 ## Architecture
 
@@ -62,7 +67,8 @@ This project does **not** generate strategy cards or A/B testing ideas.
 flowchart LR
   User[User selects board and match] --> UI[Next.js]
   UI --> API[FastAPI]
-  API --> Flow[Multi-Agent Workflow]
+  API --> Queue[Persistent task state + local worker]
+  Queue --> Flow[Multi-Agent Workflow]
   Flow --> Hupu[Hupu Public Threads]
   Flow --> News[Selected Public News]
   Hupu --> Quality[Cleaning / Dedup / Quality]
@@ -73,7 +79,7 @@ flowchart LR
   News --> Insight[Context-aware Insight]
   Analysis --> Insight
   Insight --> DB[(SQLite / PostgreSQL)]
-  DB --> Report[Dashboard / Markdown Report]
+  DB --> Report[Interactive Dashboard / Markdown Report]
 ```
 
 ```mermaid
@@ -129,6 +135,8 @@ npm run dev
 
 Open http://localhost:3000.
 
+On the dashboard, click **一键运行 Demo**. The browser creates an asynchronous task and opens the live Agent status page. No seed command or LLM key is required for this path.
+
 ### macOS / Linux
 
 ```bash
@@ -165,9 +173,15 @@ Each scenario contains 320 synthetic comments and produces:
 - MockLLM or real-LLM contextual insight
 - Markdown report
 
+The CLI demos remain available for repeatable evaluation. For a first run, the browser button is the shorter path.
+
+## Browser Uploads
+
+Open **新建分析** and choose CSV, JSON, or MediaCrawler Export. The backend saves the upload, validates it, shows up to ten preview rows, and auto-maps common field names. Confirm at least the comment-content field before creating a task. Do not enter server-local file paths in the UI.
+
 ## Analyze Real Public Hupu Threads
 
-1. Open **New Match Analysis**.
+1. Open **新建分析**.
 2. Select basketball or football and the Hupu board.
 3. Fill in the teams, match stage, and date.
 4. Choose **Hupu public threads** as the data source.
@@ -230,13 +244,21 @@ News context is intentionally bounded:
 
 Main endpoints:
 
+- `POST /api/demos/{basketball|football}`
 - `POST /api/tasks`
-- `POST /api/tasks/{id}/run`
+- `POST /api/tasks/{id}/run` (returns `202 queued`)
+- `POST /api/tasks/{id}/cancel`
+- `POST /api/tasks/{id}/retry`
+- `GET /api/tasks/{id}/status`
+- `POST /api/uploads`
+- `PATCH /api/uploads/{id}/mapping`
 - `GET /api/tasks/{id}/quality`
 - `GET /api/tasks/{id}/sentiment`
 - `GET /api/tasks/{id}/clusters`
 - `GET /api/tasks/{id}/comments`
 - `GET /api/tasks/{id}/insights`
+- `GET /api/tasks/{id}/strategy-cards`
+- `POST /api/strategy-cards/{id}/ab-test-drafts`
 - `GET /api/tasks/{id}/report/markdown`
 
 ## Optional Full Stack Mode
@@ -266,7 +288,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-See [architecture](docs/architecture.md), [agent design](docs/agent_design.md), [connectors](docs/connectors.md), [sports taxonomy](docs/domain_taxonomy.md), and [demo guide](docs/demo_guide.md).
+See [architecture](docs/architecture.md), [agent design](docs/agent_design.md), [API](docs/api.md), [connectors](docs/connectors.md), [sports taxonomy](docs/domain_taxonomy.md), [demo guide](docs/demo_guide.md), and [deployment](docs/deployment.md).
 
 ## License
 

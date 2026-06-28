@@ -33,8 +33,10 @@ class TaskUnderstandingAgent:
             "language": task.language or "zh",
             "sentiment_focus": task.sentiment_focus or "all",
             "enable_llm": task.enable_llm,
+            "llm_mode": getattr(task, "llm_mode", "mock") or "mock",
             "enable_image_analysis": getattr(task, "enable_image_analysis", True),
             "max_image_comments": max(0, min(20, int(getattr(task, "max_image_comments", 6) or 0))),
             "data_source": getattr(task, "data_source", "mock") or "mock",
             "source_path": getattr(task, "source_path", None),
+            "field_mapping": getattr(task, "field_mapping", {}) or {},
         }

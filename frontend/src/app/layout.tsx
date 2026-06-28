@@ -7,10 +7,7 @@ import { AppShell } from "@/components/AppShell";
 export const metadata: Metadata = {
   title: "Hupu Sports Comment Insight Agent",
   description: "Basketball and football match comment insight with optional news context",
-  icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico"
-  }
+  icons: { icon: "/icon.svg" }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

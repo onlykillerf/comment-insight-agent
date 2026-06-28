@@ -55,3 +55,9 @@
 - backend tests and frontend production build pass
 - API and frontend types stay aligned
 - configured source-image cap is respected in real runs
+- browser demo reaches a completed report without a CLI script
+- upload preview and mapping reject missing comment content
+- workflow exceptions persist `failed` and `error_message`
+- task status polling exposes non-zero Agent duration and summaries
+- label, cluster, and keyword clicks filter traceable comments
+- strategy-card evidence IDs exist in the task sample and ratios match real counts

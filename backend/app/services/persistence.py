@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models import (
+    ABTestDraft,
     CleanComment,
     ClusterResult,
     CommentEmbedding,
@@ -15,29 +17,99 @@ from app.models import (
     RawComment,
     RepresentativeComment,
     SentimentResult,
+    StrategyCard,
     Task,
 )
+from app.services.strategy_card_service import StrategyCardService
+from app.services.exceptions import TaskCancelledError
 from app.workflows.comment_analysis_graph import CommentAnalysisGraph
 
 
-def run_and_store_task(db: Session, task: Task) -> dict[str, Any]:
+AGENT_STEPS = [
+    "understand",
+    "route",
+    "crawl",
+    "context",
+    "media",
+    "clean",
+    "dedup",
+    "quality",
+    "sentiment",
+    "attribute",
+    "cluster",
+    "sample",
+    "insight",
+    "visualize",
+]
+
+
+def initial_progress() -> dict[str, dict[str, Any]]:
+    return {
+        key: {
+            "status": "pending",
+            "duration_ms": None,
+            "error": "",
+            "input_summary": "",
+            "output_summary": "",
+        }
+        for key in AGENT_STEPS
+    }
+
+
+def run_and_store_task(
+    db: Session,
+    task: Task,
+    progress_callback: Any | None = None,
+    cancel_check: Any | None = None,
+) -> dict[str, Any]:
     """Run the full workflow and persist analysis artifacts."""
 
     _clear_task_results(db, task.id)
     task.status = "running"
-    task.progress = {
-        key: {"status": "pending", "duration_ms": None, "error": ""}
-        for key in ["understand", "route", "crawl", "media", "context", "clean", "dedup", "quality", "sentiment", "attribute", "cluster", "sample", "insight", "visualize"]
-    }
+    task.error_message = ""
+    if cancel_check is None:
+        task.cancel_requested = False
+    task.started_at = task.started_at or datetime.now(timezone.utc)
+    task.finished_at = None
+    task.progress = initial_progress()
     db.commit()
+    if progress_callback:
+        progress_callback(task.progress)
 
-    result = CommentAnalysisGraph().run(task)
-    _store_result(db, task, result)
-    task.status = "completed"
-    task.progress = result.get("agent_progress") or task.progress
-    db.commit()
-    db.refresh(task)
-    return result.get("summary", {})
+    try:
+        result = CommentAnalysisGraph(
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        ).run(task)
+        if cancel_check and cancel_check():
+            raise TaskCancelledError("任务已由用户取消")
+        _store_result(db, task, result)
+        task.status = "completed"
+        task.error_message = ""
+        task.finished_at = datetime.now(timezone.utc)
+        task.progress = result.get("agent_progress") or task.progress
+        db.commit()
+        db.refresh(task)
+        return result.get("summary", {})
+    except TaskCancelledError as exc:
+        db.rollback()
+        current = db.get(Task, task.id)
+        if current:
+            current.status = "cancelled"
+            current.error_message = str(exc)
+            current.finished_at = datetime.now(timezone.utc)
+            current.cancel_requested = True
+            db.commit()
+        raise
+    except Exception as exc:
+        db.rollback()
+        current = db.get(Task, task.id)
+        if current:
+            current.status = "failed"
+            current.error_message = str(exc)[:2000]
+            current.finished_at = datetime.now(timezone.utc)
+            db.commit()
+        raise
 
 
 def _clear_task_results(db: Session, task_id: int) -> None:
@@ -53,6 +125,10 @@ def _clear_task_results(db: Session, task_id: int) -> None:
     db.query(ClusterResult).filter(ClusterResult.task_id == task_id).delete(synchronize_session=False)
     db.query(DataQualityReport).filter(DataQualityReport.task_id == task_id).delete(synchronize_session=False)
     db.query(InsightReport).filter(InsightReport.task_id == task_id).delete(synchronize_session=False)
+    card_ids = [row[0] for row in db.query(StrategyCard.id).filter(StrategyCard.task_id == task_id).all()]
+    if card_ids:
+        db.query(ABTestDraft).filter(ABTestDraft.strategy_card_id.in_(card_ids)).delete(synchronize_session=False)
+    db.query(StrategyCard).filter(StrategyCard.task_id == task_id).delete(synchronize_session=False)
     db.query(CleanComment).filter(CleanComment.task_id == task_id).delete(synchronize_session=False)
     db.query(RawComment).filter(RawComment.task_id == task_id).delete(synchronize_session=False)
     db.flush()
@@ -95,6 +171,7 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
             quality_score=float(comment.get("quality_score") or 0),
             is_duplicate=bool(comment.get("is_duplicate")),
             duplicate_group_id=comment.get("duplicate_group_id"),
+            cluster_id=comment.get("cluster_id"),
         )
         db.add(clean)
         db.flush()
@@ -175,4 +252,6 @@ def _store_result(db: Session, task: Task, result: dict[str, Any]) -> None:
             recommendations=[],
         )
     )
+    for card in StrategyCardService().build(result):
+        db.add(StrategyCard(task_id=task.id, **card))
     db.flush()

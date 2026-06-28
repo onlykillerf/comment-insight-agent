@@ -20,6 +20,7 @@ from app.agents.sentiment_agent import SentimentAgent
 from app.agents.task_understanding_agent import TaskUnderstandingAgent
 from app.agents.visualization_agent import VisualizationAgent
 from app.services.data_quality_service import DataQualityService
+from app.services.exceptions import TaskCancelledError
 from app.taxonomies import classify_stance
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 class CommentAnalysisGraph:
     """LangGraph-compatible Multi-Agent workflow for comment analysis."""
 
-    def __init__(self) -> None:
+    def __init__(self, progress_callback: Any | None = None, cancel_check: Any | None = None) -> None:
         self.task_understanding_agent = TaskUnderstandingAgent()
         self.platform_router_agent = PlatformRouterAgent()
         self.crawler_agent = CommentCrawlerAgent()
@@ -44,15 +45,18 @@ class CommentAnalysisGraph:
         self.news_context_agent = NewsContextAgent()
         self.visualization_agent = VisualizationAgent()
         self.data_quality_service = DataQualityService()
+        self.progress_callback = progress_callback
+        self.cancel_check = cancel_check
 
     def run(self, task: Any) -> dict[str, Any]:
         """Run the workflow, preferring LangGraph when it is available."""
 
         try:
-            return self._run_langgraph(task)
-        except Exception as exc:  # pragma: no cover - depends on optional LangGraph runtime
+            import langgraph  # noqa: F401
+        except (ImportError, ModuleNotFoundError) as exc:  # pragma: no cover - optional runtime
             logger.info("LangGraph runtime unavailable, using sequential workflow: %s", exc)
             return self._run_sequential({"task": task})
+        return self._run_langgraph(task)
 
     def _run_langgraph(self, task: Any) -> dict[str, Any]:
         from langgraph.graph import END, StateGraph
@@ -117,9 +121,12 @@ class CommentAnalysisGraph:
         return wrapped
 
     def _run_step(self, name: str, node: Any, state: dict[str, Any]) -> dict[str, Any]:
+        if self.cancel_check and self.cancel_check():
+            raise TaskCancelledError("任务已由用户取消")
         progress = state.setdefault("agent_progress", {})
         input_summary = self._step_summary(name, state)
         progress[name] = {"status": "running", "duration_ms": None, "error": "", "input_summary": input_summary, "output_summary": ""}
+        self._emit_progress(progress)
         started_at = time.perf_counter()
         try:
             next_state = node(state)
@@ -131,6 +138,7 @@ class CommentAnalysisGraph:
                 "input_summary": input_summary,
                 "output_summary": "",
             }
+            self._emit_progress(progress)
             raise
         progress[name] = {
             "status": "completed",
@@ -140,7 +148,12 @@ class CommentAnalysisGraph:
             "output_summary": self._step_summary(name, next_state),
         }
         next_state["agent_progress"] = progress
+        self._emit_progress(progress)
         return next_state
+
+    def _emit_progress(self, progress: dict[str, Any]) -> None:
+        if self.progress_callback:
+            self.progress_callback(progress)
 
     def _step_summary(self, name: str, state: dict[str, Any]) -> str:
         raw_count = len(state.get("raw_comments", []))

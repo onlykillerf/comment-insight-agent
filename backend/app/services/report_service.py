@@ -61,6 +61,25 @@ class ReportService:
                     "",
                 ]
             )
+        lines.extend(["## 证据支撑的策略卡", ""])
+        if task.strategy_cards:
+            for card in task.strategy_cards:
+                lines.extend(
+                    [
+                        f"### {card.title}",
+                        "",
+                        f"- 类型：{card.card_type}",
+                        f"- 证据数：{card.evidence_count} / 样本量：{card.sample_size}",
+                        f"- 影响占比：{card.affected_ratio:.1%}",
+                        f"- 可信度：{card.confidence}（{card.confidence_reason}）",
+                        f"- 预期影响：{card.expected_impact}",
+                        *[f"- 建议：{action}" for action in card.suggested_actions],
+                        *[f"- 证据评论：{item.get('content', '')}" for item in card.evidence_comments[:3]],
+                        "",
+                    ]
+                )
+        else:
+            lines.extend(["- 没有达到至少两条评论证据门槛的策略卡。", ""])
         lines.extend(
             [
                 "## 合规与解释边界",

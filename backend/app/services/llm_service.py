@@ -18,14 +18,14 @@ class LLMService:
     def __init__(self) -> None:
         self.settings = get_settings()
 
-    def generate_insight(self, context: dict[str, Any]) -> dict[str, Any]:
+    def generate_insight(self, context: dict[str, Any], provider_mode: str = "configured") -> dict[str, Any]:
         """Generate a structured insight report.
 
         The mock provider is used only when explicitly configured or when no
         provider key is configured.
         """
 
-        if self.settings.llm_provider == "mock" or not self._has_provider_key():
+        if provider_mode == "mock" or self.settings.llm_provider == "mock" or not self._has_provider_key():
             return self._mock_response(context)
         try:
             return self._provider_response(context)

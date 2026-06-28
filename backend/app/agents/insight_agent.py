@@ -26,4 +26,7 @@ class InsightGenerationAgent:
                 "fact_opinion_gaps": [],
                 "risks": [],
             }
-        return self.llm_service.generate_insight(context)
+        return self.llm_service.generate_insight(
+            context,
+            provider_mode=context.get("config", {}).get("llm_mode", "mock"),
+        )

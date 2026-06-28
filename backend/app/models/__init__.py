@@ -1,4 +1,5 @@
 from app.models.records import (
+    ABTestDraft,
     CleanComment,
     ClusterResult,
     CommentEmbedding,
@@ -9,7 +10,9 @@ from app.models.records import (
     RawComment,
     RepresentativeComment,
     SentimentResult,
+    StrategyCard,
     Task,
+    UploadedDataset,
 )
 
 __all__ = [
@@ -24,4 +27,7 @@ __all__ = [
     "ClusterResult",
     "RepresentativeComment",
     "InsightReport",
+    "StrategyCard",
+    "ABTestDraft",
+    "UploadedDataset",
 ]

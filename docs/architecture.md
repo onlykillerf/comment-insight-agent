@@ -7,17 +7,18 @@ The application analyzes one basketball or football match at a time. A task is a
 - sport: `basketball` or `football`
 - Hupu board, such as `nba` or `world_cup`
 - home team, away team, stage, and date
-- user-selected public Hupu thread URLs or a local CSV/JSON export
+- user-selected public Hupu thread URLs or a browser-uploaded CSV/JSON/MediaCrawler export
 - optional public news URLs or a manual match brief
 
 ## Data Flow
 
 ```mermaid
 flowchart TD
-  UI[Next.js task form] --> API[FastAPI]
-  API --> Task[TaskUnderstandingAgent]
+  UI[Next.js Wizard + Dashboard] --> API[FastAPI]
+  API --> Queue[Persistent status + ThreadPool worker]
+  Queue --> Task[TaskUnderstandingAgent]
   Task --> Router[PlatformRouterAgent]
-  Router --> Comments[Hupu / CSV / JSON / Mock]
+  Router --> Comments[Hupu / Uploaded CSV / JSON / MediaCrawler / Mock]
   Comments --> Context[NewsContextAgent]
   Context --> Media[Source Image Selection + Vision]
   Context --> Clean[Clean + Deduplicate + Quality]
@@ -25,20 +26,25 @@ flowchart TD
   Analyze --> Sample[Representative Comments]
   Sample --> Insight[Context-aware Insight]
   Insight --> Store[(SQLAlchemy)]
-  Store --> Report[Dashboard + Markdown]
+  Store --> Report[Interactive report + Markdown]
 ```
 
 ## Storage
 
 - `tasks`: match identity, selected Hupu threads, optional news context, image-analysis limits, runtime settings, and agent progress.
+- `uploaded_datasets`: safe generated path, validation result, preview rows, and canonical field mapping.
 - `raw_comments`: normalized public comment text with author hashes and source URLs; reply images are not collected.
 - `clean_comments`: cleaned text, duplicate status, quality score, sentiment, and sports labels.
 - `data_quality_reports`: sample counts, duplicate/noise ratios, language distribution, and confidence.
 - `cluster_results`: topic size, keywords, sentiment distribution, noise flag, and representative comments.
 - `representative_comments`: traceable high-signal examples.
 - `insight_reports`: viewpoints, controversies, news context comparison, selected source-image evidence, fact/opinion gaps, and risks.
+- `strategy_cards`: deterministic evidence IDs, actual affected ratio, confidence inputs, actions, and test design.
+- `ab_test_drafts`: user-created drafts derived from a persisted strategy card.
 
 SQLite is the local default. Small additive schema upgrades keep existing demo databases usable.
+
+The v0.1 worker is intentionally in-process and suited to local demos or one API replica. Task state is persistent, interrupted work is marked failed on restart, and cancellation is checked between Agents. For multi-replica production deployment, replace the executor with an external queue while preserving the API states.
 
 ## Trust Boundary
 

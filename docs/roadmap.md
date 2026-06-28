@@ -9,7 +9,9 @@
 - fact/opinion comparison
 - bounded SiliconFlow source-image understanding for data posts, reports, news, and official pages
 - explicit match-outcome contradiction guardrail
-- removal of strategy cards and A/B testing
+- browser one-click Demo and persistent async task states
+- upload Wizard for CSV, JSON, and MediaCrawler exports
+- evidence-backed strategy cards with export and A/B draft actions
 
 ## v0.3 Parsing Reliability
 

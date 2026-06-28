@@ -38,11 +38,11 @@ export function StatusSteps({ progress }: { progress: Record<string, AgentProgre
         rowKey="key"
         dataSource={normalized}
         columns={[
-          { title: "Agent", dataIndex: "key", render: (key: string) => names[key] },
+          { title: "Agent", dataIndex: "key", width: 150, render: (key: string) => names[key] },
           {
             title: "状态",
             dataIndex: "status",
-            render: (status: string) => <Tag color={statusColor(status)}>{status}</Tag>
+            render: (status: string) => <Tag color={statusColor(status)}>{statusText(status)}</Tag>
           },
           {
             title: "耗时",
@@ -79,4 +79,8 @@ function statusColor(status: string) {
     return "red";
   }
   return "default";
+}
+
+function statusText(status: string) {
+  return ({ pending: "等待中", running: "运行中", completed: "已完成", error: "失败" } as Record<string, string>)[status] || status;
 }

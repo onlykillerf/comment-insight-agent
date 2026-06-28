@@ -6,6 +6,7 @@ from app.connectors import (
     CSVConnector,
     HupuPublicConnector,
     JsonConnector,
+    MediaCrawlerExportConnector,
     MockConnector,
 )
 from app.connectors.base import FetchRequest, PlatformConnector
@@ -20,6 +21,7 @@ class PlatformRouterAgent:
             "hupu_public": HupuPublicConnector(),
             "csv": CSVConnector(),
             "json": JsonConnector(),
+            "mediacrawler": MediaCrawlerExportConnector(),
         }
 
     def run(self, config: dict[str, Any]) -> dict[str, Any]:
@@ -29,7 +31,7 @@ class PlatformRouterAgent:
         connector = self._connectors.get(data_source, self._connectors["mock"])
         plans = []
         platforms = config["platforms"]
-        if data_source in {"csv", "json"}:
+        if data_source in {"csv", "json", "mediacrawler"}:
             platforms = [platforms[0] if platforms else "sample"]
         for platform in platforms:
             request = FetchRequest(
@@ -39,7 +41,11 @@ class PlatformRouterAgent:
                 keywords=config["keywords"],
                 semantic_query=config["semantic_query"],
                 time_range=config["time_range"],
-                max_comments=config["max_comments"] if data_source in {"csv", "json"} else max(1, config["max_comments"] // max(1, len(config["platforms"]))),
+                max_comments=(
+                    config["max_comments"]
+                    if data_source in {"csv", "json", "mediacrawler"}
+                    else max(1, config["max_comments"] // max(1, len(config["platforms"])))
+                ),
                 source_path=config.get("source_path"),
                 source_urls=config.get("thread_urls") or [],
                 board=config.get("board", ""),
@@ -48,6 +54,7 @@ class PlatformRouterAgent:
                 away_team=config.get("away_team", ""),
                 match_stage=config.get("match_stage", ""),
                 match_date=config.get("match_date", ""),
+                field_mapping=config.get("field_mapping") or {},
             )
             plans.append(
                 {

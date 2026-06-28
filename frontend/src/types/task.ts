@@ -6,6 +6,18 @@ export type AgentProgress = {
   output_summary?: string;
 };
 
+export type TaskStatus = {
+  task_id: number;
+  status: string;
+  progress: Record<string, AgentProgress | string>;
+  error_message: string;
+  cancel_requested: boolean;
+  run_attempt: number;
+  queued_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+};
+
 export type Task = {
   id: number;
   name: string;
@@ -28,12 +40,21 @@ export type Task = {
   language: string;
   sentiment_focus: string;
   enable_llm: boolean;
+  llm_mode: "mock" | "configured" | string;
   enable_image_analysis: boolean;
   max_image_comments: number;
   data_source: string;
   source_path?: string | null;
+  upload_id?: string | null;
+  field_mapping: Record<string, string>;
   status: string;
   progress: Record<string, AgentProgress | string>;
+  error_message: string;
+  cancel_requested: boolean;
+  run_attempt: number;
+  queued_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -53,6 +74,7 @@ export type CommentItem = {
   painpoint?: string | null;
   positive_attribution?: string | null;
   representative_reason?: string | null;
+  cluster_id?: number | null;
   image_urls: string[];
   image_analysis: {
     status?: string;
@@ -143,4 +165,59 @@ export type ClassificationRow = {
   count: number;
   ratio: number;
   examples: string[];
+};
+
+export type UploadedDataset = {
+  id: string;
+  original_name: string;
+  source_kind: "csv" | "json" | "mediacrawler" | string;
+  file_format: string;
+  size_bytes: number;
+  row_count: number;
+  columns: string[];
+  preview_rows: Record<string, unknown>[];
+  field_mapping: Record<string, string>;
+  validation_errors: string[];
+  status: "ready" | "needs_mapping" | string;
+  created_at: string;
+};
+
+export type StrategyEvidence = {
+  comment_id: string;
+  content: string;
+  source_url?: string;
+  like_count?: number;
+};
+
+export type StrategyCard = {
+  id: number;
+  task_id: number;
+  title: string;
+  card_type: string;
+  evidence_comment_ids: string[];
+  evidence_comments: StrategyEvidence[];
+  evidence_count: number;
+  sample_size: number;
+  affected_ratio: number;
+  confidence: string;
+  confidence_reason: string;
+  suggested_actions: string[];
+  expected_impact: string;
+  ab_test_design: Record<string, unknown>;
+  created_at: string;
+};
+
+export type ABTestDraft = {
+  id: number;
+  task_id: number;
+  strategy_card_id: number;
+  name: string;
+  hypothesis: string;
+  control: string;
+  variant: string;
+  primary_metric: string;
+  guardrail_metrics: string[];
+  sample_size_note: string;
+  status: string;
+  created_at: string;
 };

@@ -26,6 +26,7 @@ class FetchRequest:
     away_team: str = ""
     match_stage: str = ""
     match_date: str = ""
+    field_mapping: dict[str, str] = field(default_factory=dict)
 
 
 class PlatformConnector(Protocol):

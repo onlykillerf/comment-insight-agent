@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Empty, Table, Tag } from "antd";
-import { Activity, BarChart3, CheckCircle2, FileText, MessageSquareText, Plus, ShieldCheck, Trophy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Alert, Button, Empty, Table, Tag, message } from "antd";
+import { Activity, BarChart3, CheckCircle2, FileText, MessageSquareText, Play, Plus, ShieldCheck, Trophy } from "lucide-react";
 import { api } from "@/api/client";
 import type { Task } from "@/types/task";
 
@@ -13,27 +14,41 @@ const demos = [
     sport: "basketball",
     board: "NBA",
     description: "围绕具体系列赛场次，分析球员表现、战术调整、关键球与判罚争议。",
-    command: "python backend/scripts/run_demo_task.py --scenario nba_game"
+    action: "basketball" as const
   },
   {
     title: "世界杯单场舆情",
     sport: "football",
     board: "世界杯",
     description: "聚焦进攻组织、防线表现、VAR 判罚、教练换人与球迷立场。",
-    command: "python backend/scripts/run_demo_task.py --scenario world_cup_game"
+    action: "football" as const
   }
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api
-      .listTasks()
-      .then(setTasks)
-      .finally(() => setLoading(false));
+    api.listTasks().then(setTasks).catch((caught) => setError(caught instanceof Error ? caught.message : "任务列表加载失败")).finally(() => setLoading(false));
   }, []);
+
+  const startDemo = async (scenario: "basketball" | "football") => {
+    setDemoLoading(scenario);
+    setError("");
+    try {
+      const task = await api.createDemo(scenario);
+      message.success("Demo 已加入分析队列");
+      router.push(`/tasks/${task.id}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Demo 启动失败");
+    } finally {
+      setDemoLoading(null);
+    }
+  };
 
   const latestCompleted = tasks.find((task) => task.status === "completed");
   const metrics = useMemo(
@@ -53,7 +68,7 @@ export default function DashboardPage() {
           <div className="max-w-3xl">
             <div className="mb-2 flex items-center gap-2 text-sm font-medium text-teal-700">
               <MessageSquareText size={17} />
-              Hupu Sports Comment Insight Agent
+              虎扑赛事评论洞察 Agent
             </div>
             <h1 className="m-0 text-3xl font-semibold text-ink">从一场比赛，看清虎扑球迷在讨论什么</h1>
             <p className="m-0 mt-3 text-sm leading-6 text-slate-600">
@@ -72,6 +87,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {error && <Alert type="error" showIcon message="服务暂不可用" description={error} />}
 
       <section className="grid gap-4 md:grid-cols-4">
         {metrics.map((metric) => {
@@ -92,7 +109,7 @@ export default function DashboardPage() {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="m-0 text-lg font-semibold text-ink">赛事分析模板</h2>
-            <p className="m-0 mt-1 text-sm text-slate-500">产品只保留篮球与足球两条主线。</p>
+            <p className="m-0 mt-1 text-sm text-slate-500">无需命令行，使用 Mock 数据与 MockLLM 在浏览器内跑完整流程。</p>
           </div>
           <Tag icon={<ShieldCheck size={13} />}>公开页面 / Mock-first</Tag>
         </div>
@@ -104,7 +121,15 @@ export default function DashboardPage() {
                 <Tag>{demo.board}</Tag>
               </div>
               <p className="min-h-[48px] text-sm leading-6 text-slate-600">{demo.description}</p>
-              <code className="block rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-100">{demo.command}</code>
+              <Button
+                type="primary"
+                icon={<Play size={16} />}
+                loading={demoLoading === demo.action}
+                disabled={demoLoading !== null && demoLoading !== demo.action}
+                onClick={() => startDemo(demo.action)}
+              >
+                一键运行 Demo
+              </Button>
             </article>
           ))}
         </div>
@@ -128,8 +153,8 @@ export default function DashboardPage() {
                 width: 170,
                 render: (_, row) => <><Tag>{row.domain === "football" ? "足球" : "篮球"}</Tag><Tag>{row.board}</Tag></>
               },
-              { title: "来源", dataIndex: "data_source", width: 130 },
-              { title: "状态", dataIndex: "status", width: 110, render: (status: string) => <Tag color={status === "completed" ? "green" : "blue"}>{status}</Tag> },
+              { title: "来源", dataIndex: "data_source", width: 130, render: (value: string) => sourceText(value) },
+              { title: "状态", dataIndex: "status", width: 110, render: (status: string) => <Tag color={statusColor(status)}>{statusText(status)}</Tag> },
               {
                 title: "操作",
                 width: 150,
@@ -148,4 +173,16 @@ export default function DashboardPage() {
       </section>
     </div>
   );
+}
+
+function statusText(status: string) {
+  return ({ created: "待运行", queued: "排队中", running: "运行中", completed: "已完成", failed: "失败", cancelled: "已取消" } as Record<string, string>)[status] || status;
+}
+
+function statusColor(status: string) {
+  return ({ completed: "green", failed: "red", cancelled: "default", queued: "gold", running: "blue" } as Record<string, string>)[status] || "default";
+}
+
+function sourceText(source: string) {
+  return ({ mock: "Mock 演示", hupu_public: "虎扑公开帖子", csv: "CSV 上传", json: "JSON 上传", mediacrawler: "MediaCrawler 导出" } as Record<string, string>)[source] || source;
 }
